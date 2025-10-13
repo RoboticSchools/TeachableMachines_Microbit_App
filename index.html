@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Teachable Machine + micro:bit</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f1115;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    #container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: #1b1e25;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    video {
+      width: 480px;
+      height: 360px;
+      border-radius: 12px;
+      background: #000;
+      object-fit: cover;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    #prediction {
+      width: 220px;
+      font-size: 28px;
+      font-weight: bold;
+      text-align: center;
+      color: #00c3ff;
+    }
+
+    button {
+      margin: 8px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #00c3ff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #009ad1;
+    }
+
+    input {
+      width: 400px;
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      margin: 8px;
+      background: #222;
+      color: #fff;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+</head>
+<body>
+
+  <h2>🎓 Teachable Machine + micro:bit</h2>
+
+  <div>
+    <input id="modelUrl" value="https://teachablemachine.withgoogle.com/models/261UdaxXn/" />
+  </div>
+  <div>
+    <button onclick="start()">Start</button>
+    <button onclick="connectMicrobit()">Connect micro:bit</button>
+  </div>
+
+  <div id="container">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="prediction"></div>
+  </div>
+
+  <script>
+    let model, labels = [], video, txCharacteristic;
+
+    async function start() {
+      const base = document.getElementById("modelUrl").value.trim();
+      const modelURL = base + "model.json";
+      const metadataURL = base + "metadata.json";
+      video = document.getElementById("video");
+
+      model = await tf.loadLayersModel(modelURL);
+      const metaResponse = await fetch(metadataURL);
+      const metadata = await metaResponse.json();
+      labels = metadata.labels || [];
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+
+      runPrediction();
+    }
+
+    async function runPrediction() {
+      const predDiv = document.getElementById("prediction");
+      const webcamCanvas = document.createElement("canvas");
+      const ctx = webcamCanvas.getContext("2d");
+
+      async function loop() {
+        ctx.drawImage(video, 0, 0, 224, 224);
+        const img = tf.browser.fromPixels(webcamCanvas)
+          .resizeNearestNeighbor([224,224])
+          .toFloat()
+          .expandDims();
+        const prediction = model.predict(img);
+        const data = await prediction.data();
+        img.dispose(); prediction.dispose();
+
+        const maxIndex = data.indexOf(Math.max(...data));
+        const bestClass = labels[maxIndex] || `Class ${maxIndex}`;
+        const bestProb = Math.max(...data);
+
+        if (bestProb >= 0.7) {
+          predDiv.innerHTML = bestClass;
+          if (txCharacteristic) await sendToMicrobit(bestClass);
+        } else {
+          predDiv.innerHTML = "";
+        }
+
+        requestAnimationFrame(loop);
+      }
+      loop();
+    }
+
+    async function connectMicrobit() {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: "BBC micro:bit" }],
+          optionalServices: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+        txCharacteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+        alert("✅ Connected to micro:bit!");
+      } catch (err) {
+        alert("❌ " + err);
+      }
+    }
+
+    async function sendToMicrobit(text) {
+      if (!txCharacteristic) return;
+      const encoder = new TextEncoder();
+      await txCharacteristic.writeValue(encoder.encode(text + "\n"));
+    }
+  </script>
+</body>
+</html>
