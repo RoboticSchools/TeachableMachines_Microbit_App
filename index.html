@@ -164,7 +164,7 @@
         const bestClass = labels[maxIndex] || `Class ${maxIndex}`;
         const bestProb = Math.max(...data);
 
-        if (bestProb >= 0.7) {
+        if (bestProb >= 0.6) {
           predDiv.style.color = colors[maxIndex % colors.length];
           predDiv.innerHTML = bestClass;
           if (txCharacteristic) await sendToMicrobit(bestClass);
