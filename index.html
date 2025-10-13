@@ -40,7 +40,7 @@
       font-size: 28px;
       font-weight: bold;
       text-align: center;
-      color: #00c3ff;
+      transition: color 0.3s;
     }
 
     button {
@@ -70,6 +70,13 @@
       background: #222;
       color: #fff;
     }
+
+    #status {
+      font-size: 16px;
+      margin-top: 8px;
+      color: #00c3ff;
+      height: 24px;
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
@@ -79,12 +86,14 @@
   <h2>🎓 Teachable Machine + micro:bit</h2>
 
   <div>
-    <input id="modelUrl" value="https://teachablemachine.withgoogle.com/models/261UdaxXn/" />
+    <input id="modelUrl" placeholder="Paste your Teachable Machine model link here..." />
   </div>
   <div>
+    <button onclick="loadModel()">Load Model</button>
     <button onclick="start()">Start</button>
     <button onclick="connectMicrobit()">Connect micro:bit</button>
   </div>
+  <div id="status"></div>
 
   <div id="container">
     <video id="video" autoplay playsinline muted></video>
@@ -93,21 +102,46 @@
 
   <script>
     let model, labels = [], video, txCharacteristic;
+    const colors = ["#00c3ff", "#ff5555", "#00ff99", "#ffcc00", "#ff66cc", "#66ff66", "#ff9966", "#33ccff"];
+    const statusDiv = document.getElementById("status");
 
-    async function start() {
+    async function loadModel() {
       const base = document.getElementById("modelUrl").value.trim();
+      if (!base) {
+        statusDiv.style.color = "orange";
+        statusDiv.innerHTML = "⚠️ Please paste your model link first.";
+        return;
+      }
       const modelURL = base + "model.json";
       const metadataURL = base + "metadata.json";
+
+      try {
+        statusDiv.style.color = "#00c3ff";
+        statusDiv.innerHTML = "⏳ Loading model...";
+        model = await tf.loadLayersModel(modelURL);
+        const metaResponse = await fetch(metadataURL);
+        const metadata = await metaResponse.json();
+        labels = metadata.labels || [];
+        statusDiv.style.color = "#00ff99";
+        statusDiv.innerHTML = "✅ Model loaded successfully!";
+      } catch (err) {
+        console.error(err);
+        statusDiv.style.color = "#ff5555";
+        statusDiv.innerHTML = "❌ Failed to load model.";
+      }
+    }
+
+    async function start() {
+      if (!model) {
+        statusDiv.style.color = "#ff5555";
+        statusDiv.innerHTML = "⚠️ Please load the model first.";
+        return;
+      }
+
       video = document.getElementById("video");
-
-      model = await tf.loadLayersModel(modelURL);
-      const metaResponse = await fetch(metadataURL);
-      const metadata = await metaResponse.json();
-      labels = metadata.labels || [];
-
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       video.srcObject = stream;
-
+      statusDiv.innerHTML = "🎥 Camera started.";
       runPrediction();
     }
 
@@ -131,6 +165,7 @@
         const bestProb = Math.max(...data);
 
         if (bestProb >= 0.7) {
+          predDiv.style.color = colors[maxIndex % colors.length];
           predDiv.innerHTML = bestClass;
           if (txCharacteristic) await sendToMicrobit(bestClass);
         } else {
@@ -144,16 +179,21 @@
 
     async function connectMicrobit() {
       try {
+        statusDiv.style.color = "#00c3ff";
+        statusDiv.innerHTML = "🔍 Scanning for Bluetooth devices...";
         const device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: "BBC micro:bit" }],
+          acceptAllDevices: true,
           optionalServices: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
         });
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
         txCharacteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-        alert("✅ Connected to micro:bit!");
+        statusDiv.style.color = "#00ff99";
+        statusDiv.innerHTML = `✅ Connected to ${device.name || "micro:bit"}`;
       } catch (err) {
-        alert("❌ " + err);
+        console.error(err);
+        statusDiv.style.color = "#ff5555";
+        statusDiv.innerHTML = "❌ Bluetooth connection failed.";
       }
     }
 
