@@ -2,98 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Teachable Machine + micro:bit</title>
+  <title>Teachable Machine + micro:bit (Improved BLE)</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #0f1115;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-    }
-
-    #container {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      background: #1b1e25;
-      padding: 20px;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    }
-
-    video {
-      width: 480px;
-      height: 360px;
-      border-radius: 12px;
-      background: #000;
-      object-fit: cover;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    }
-
-    #prediction {
-      width: 220px;
-      font-size: 28px;
-      font-weight: bold;
-      text-align: center;
-      transition: color 0.3s;
-    }
-
-    button {
-      margin: 8px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      background: #00c3ff;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    button:hover {
-      background: #009ad1;
-    }
-
-    input {
-      width: 400px;
-      padding: 8px;
-      border-radius: 6px;
-      border: none;
-      outline: none;
-      font-size: 14px;
-      margin: 8px;
-      background: #222;
-      color: #fff;
-    }
-
-    #status {
-      font-size: 16px;
-      margin-top: 8px;
-      color: #00c3ff;
-      height: 24px;
-    }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f1115; color: #fff; display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;}
+    #container { display:flex;align-items:center;gap:20px;background:#1b1e25;padding:20px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.4); }
+    video { width:480px;height:360px;border-radius:12px;background:#000;object-fit:cover;box-shadow:0 2px 12px rgba(0,0,0,0.3); }
+    #prediction { width:220px;font-size:28px;font-weight:bold;text-align:center;transition:color .3s; }
+    button { margin:8px;padding:10px 20px;border:none;border-radius:8px;background:#00c3ff;color:white;font-weight:bold;cursor:pointer;transition:.3s;}
+    button:hover{background:#009ad1}
+    input { width:400px;padding:8px;border-radius:6px;border:none;outline:none;font-size:14px;margin:8px;background:#222;color:#fff;}
+    #status { font-size:16px;margin-top:8px;color:#00c3ff;height:24px; }
+    .small { font-size:13px; opacity:0.9; margin-top:6px;}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 </head>
 <body>
 
-  <h2>🎓 Teachable Machine + micro:bit</h2>
+  <h2>🎓 Teachable Machine + micro:bit (Improved BLE)</h2>
 
   <div>
     <input id="modelUrl" placeholder="Paste your Teachable Machine model link here..." />
   </div>
   <div>
-    <button onclick="loadModel()">Load Model</button>
-    <button onclick="start()">Start</button>
-    <button onclick="connectMicrobit()">Connect micro:bit</button>
+    <button id="loadBtn">Load Model</button>
+    <button id="startBtn">Start Camera</button>
+    <button id="connectBtn">Connect micro:bit</button>
   </div>
-  <div id="status"></div>
+  <div id="status">Not connected</div>
+  <div class="small" id="deviceName"></div>
 
   <div id="container">
     <video id="video" autoplay playsinline muted></video>
@@ -101,75 +38,284 @@
   </div>
 
   <script>
-    let model, labels = [], video, txCharacteristic;
-    const colors = ["#00c3ff", "#ff5555", "#00ff99", "#ffcc00", "#ff66cc", "#66ff66", "#ff9966", "#33ccff"];
+    // ---------- TF / UI ----------
+    let model = null, labels = [], video = null;
+    const colors = ["#00c3ff","#ff5555","#00ff99","#ffcc00","#ff66cc","#66ff66","#ff9966","#33ccff"];
     const statusDiv = document.getElementById("status");
+    const deviceNameEl = document.getElementById("deviceName");
+    const predDiv = document.getElementById("prediction");
 
-    async function loadModel() {
+    document.getElementById('loadBtn').addEventListener('click', loadModel);
+    document.getElementById('startBtn').addEventListener('click', startCamera);
+    document.getElementById('connectBtn').addEventListener('click', connectMicrobit);
+
+    async function loadModel(){
       const base = document.getElementById("modelUrl").value.trim();
-      if (!base) {
-        statusDiv.style.color = "orange";
-        statusDiv.innerHTML = "⚠️ Please paste your model link first.";
-        return;
-      }
-      const modelURL = base + "model.json";
-      const metadataURL = base + "metadata.json";
-
-      try {
-        statusDiv.style.color = "#00c3ff";
-        statusDiv.innerHTML = "⏳ Loading model...";
+      if(!base){ statusDiv.style.color='orange'; statusDiv.innerHTML='⚠️ Please paste your model link.'; return; }
+      const modelURL = base + (base.endsWith('/') ? '' : '/') + "model.json";
+      const metadataURL = base + (base.endsWith('/') ? '' : '/') + "metadata.json";
+      try{
+        statusDiv.style.color='#00c3ff'; statusDiv.innerHTML = '⏳ Loading model...';
         model = await tf.loadLayersModel(modelURL);
-        const metaResponse = await fetch(metadataURL);
-        const metadata = await metaResponse.json();
-        labels = metadata.labels || [];
-        statusDiv.style.color = "#00ff99";
-        statusDiv.innerHTML = "✅ Model loaded successfully!";
-      } catch (err) {
-        console.error(err);
-        statusDiv.style.color = "#ff5555";
-        statusDiv.innerHTML = "❌ Failed to load model.";
+        const metaResp = await fetch(metadataURL);
+        const meta = await metaResp.json();
+        labels = meta.labels || [];
+        statusDiv.style.color='#00ff99'; statusDiv.innerHTML = '✅ Model loaded';
+      }catch(e){
+        console.error(e);
+        statusDiv.style.color='#ff5555'; statusDiv.innerHTML = '❌ Failed to load model';
       }
     }
 
-    async function start() {
-      if (!model) {
-        statusDiv.style.color = "#ff5555";
-        statusDiv.innerHTML = "⚠️ Please load the model first.";
+    async function startCamera(){
+      if(!model){ statusDiv.style.color='#ff5555'; statusDiv.innerHTML='⚠️ Load the model first.'; return; }
+      video = document.getElementById('video');
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({video:true});
+        video.srcObject = stream;
+        statusDiv.style.color='#00c3ff'; statusDiv.innerHTML='🎥 Camera started';
+        runPredictionLoop();
+      }catch(e){
+        console.error(e);
+        statusDiv.style.color='#ff5555'; statusDiv.innerHTML='❌ Camera access denied';
+      }
+    }
+
+    // ---------- BLE UART (improved) ----------
+    const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const UART_NOTIFY_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // device -> browser (notify)
+    const UART_WRITE_CHAR_UUID  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // browser -> device (write)
+
+    let bleDevice = null;
+    let bleServer = null;
+    let uartService = null;
+    let notifyChar = null;
+    let writeChar = null;
+    let encoder = new TextEncoder();
+    let writeQueue = Promise.resolve();
+    let connected = false;
+
+    // reconnect helpers
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 8;
+
+    function queueGattOperation(op){ writeQueue = writeQueue.then(op, op); return writeQueue; }
+
+    function safeLog(msg, ...args){ console.log('[BLE]', msg, ...args); }
+
+    async function connectMicrobit(){
+      try {
+        statusDiv.style.color='#00c3ff'; statusDiv.innerHTML='🔍 Requesting micro:bit (showing nearby micro:bits)...';
+        // prefer filtering to micro:bit; if browser doesn't allow filters, user may need acceptAllDevices
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'BBC micro:bit' }],
+          optionalServices: [UART_SERVICE_UUID]
+        });
+        if(!bleDevice){ throw new Error('No device selected'); }
+        bleDevice.addEventListener('gattserverdisconnected', handleDisconnected);
+        deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
+
+        statusDiv.innerHTML = '🔌 Connecting...';
+        bleServer = await bleDevice.gatt.connect();
+
+        statusDiv.innerHTML = '🔧 Getting UART service...';
+        uartService = await bleServer.getPrimaryService(UART_SERVICE_UUID);
+
+        statusDiv.innerHTML = '🔧 Getting characteristics...';
+        // get write characteristic (browser -> device)
+        try {
+          writeChar = await uartService.getCharacteristic(UART_WRITE_CHAR_UUID);
+          safeLog('Obtained write characteristic', writeChar);
+        } catch(e) {
+          console.warn('Write characteristic not found', e);
+          writeChar = null;
+        }
+
+        // get notify characteristic (device -> browser) and start notifications if possible
+        try {
+          notifyChar = await uartService.getCharacteristic(UART_NOTIFY_CHAR_UUID);
+          safeLog('Obtained notify characteristic', notifyChar);
+          if (notifyChar.properties.notify || notifyChar.properties.indicate) {
+            await notifyChar.startNotifications();
+            notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+          }
+        } catch(e) {
+          console.warn('Notify characteristic not available', e);
+          notifyChar = null;
+        }
+
+        connected = true;
+        reconnectAttempts = 0;
+        statusDiv.style.color = '#00ff99';
+        statusDiv.innerHTML = `✅ Connected: ${bleDevice.name || 'micro:bit'}`;
+        document.getElementById('connectBtn').textContent = 'Connected';
+        deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
+      } catch (err) {
+        console.error('Connect failed', err);
+        statusDiv.style.color = '#ff5555';
+        statusDiv.innerHTML = '❌ Bluetooth connection failed (try again)';
+        deviceNameEl.textContent = '';
+        bleDevice = null;
+        connected = false;
+      }
+    }
+
+    function handleDisconnected(event){
+      const dev = event.target;
+      safeLog(`Device ${dev.name} disconnected`);
+      connected = false;
+      statusDiv.style.color = 'orange';
+      statusDiv.innerHTML = '⚠️ Disconnected — attempting reconnect...';
+      // try to reconnect with backoff
+      attemptReconnect();
+    }
+
+    function attemptReconnect(){
+      if(!bleDevice) { statusDiv.innerHTML = 'Not connected'; return; }
+      reconnectAttempts++;
+      if(reconnectAttempts > MAX_RECONNECT_ATTEMPTS){
+        statusDiv.style.color = '#ff5555';
+        statusDiv.innerHTML = '❌ Reconnect failed — please click Connect again';
+        document.getElementById('connectBtn').textContent = 'Connect';
+        deviceNameEl.textContent = '';
         return;
       }
-
-      video = document.getElementById("video");
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
-      statusDiv.innerHTML = "🎥 Camera started.";
-      runPrediction();
+      const backoffMs = Math.min(1000 * Math.pow(2, reconnectAttempts-1), 20000);
+      safeLog('Reconnect attempt', reconnectAttempts, 'next in ms', backoffMs);
+      setTimeout(async () => {
+        try {
+          statusDiv.innerHTML = `🔁 Reconnect attempt ${reconnectAttempts}...`;
+          bleServer = await bleDevice.gatt.connect();
+          // refresh service and characteristics
+          uartService = await bleServer.getPrimaryService(UART_SERVICE_UUID);
+          writeChar = await uartService.getCharacteristic(UART_WRITE_CHAR_UUID).catch(()=>null);
+          notifyChar = await uartService.getCharacteristic(UART_NOTIFY_CHAR_UUID).catch(()=>null);
+          if(notifyChar && (notifyChar.properties.notify || notifyChar.properties.indicate)){
+            await notifyChar.startNotifications();
+            notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+          }
+          connected = true;
+          reconnectAttempts = 0;
+          statusDiv.style.color = '#00ff99';
+          statusDiv.innerHTML = `✅ Reconnected: ${bleDevice.name || 'micro:bit'}`;
+          document.getElementById('connectBtn').textContent = 'Connected';
+        } catch(e){
+          console.warn('Reconnect attempt failed', e);
+          attemptReconnect();
+        }
+      }, backoffMs);
     }
 
-    async function runPrediction() {
-      const predDiv = document.getElementById("prediction");
-      const webcamCanvas = document.createElement("canvas");
-      const ctx = webcamCanvas.getContext("2d");
+    function onNotify(ev){
+      const value = ev.target.value;
+      const text = new TextDecoder().decode(value);
+      safeLog('Notified:', text);
+      // optionally show small messages or implement logic
+    }
 
-      async function loop() {
-        ctx.drawImage(video, 0, 0, 224, 224);
-        const img = tf.browser.fromPixels(webcamCanvas)
-          .resizeNearestNeighbor([224,224])
-          .toFloat()
-          .expandDims();
+    // write helper that queues writes
+    function sendUARTRaw(bytes){
+      if(!writeChar){
+        safeLog('No write characteristic - cannot send');
+        statusDiv.style.color = '#ff5555';
+        statusDiv.innerHTML = '❌ Not writable - reconnect or check micro:bit firmware';
+        return Promise.reject(new Error('No write characteristic'));
+      }
+
+      return queueGattOperation(async () => {
+        try {
+          // prefer writeValue; fallback to writeValueWithoutResponse if provided
+          if(typeof writeChar.writeValue === 'function'){
+            await writeChar.writeValue(bytes);
+          } else if(typeof writeChar.writeValueWithoutResponse === 'function'){
+            await writeChar.writeValueWithoutResponse(bytes);
+          } else {
+            // some implementations present writeWithoutResponse as a property
+            if(writeChar.properties && writeChar.properties.writeWithoutResponse && typeof writeChar.writeValue === 'function'){
+              try { await writeChar.writeValue(bytes); } catch(e){ throw e; }
+            } else {
+              throw new Error('No writable method on characteristic');
+            }
+          }
+          safeLog('Sent bytes', bytes);
+        } catch (err){
+          console.error('Write failed', err);
+          throw err;
+        }
+      });
+    }
+
+    async function sendToMicrobit(text){
+      if(!connected || !writeChar){
+        safeLog('Skipped send - not connected');
+        return;
+      }
+      try {
+        const payload = encoder.encode(String(text) + '\n');
+        await sendUARTRaw(payload);
+      } catch(e){
+        console.error('sendToMicrobit error', e);
+      }
+    }
+
+    // ---------- Prediction loop: only send on changes ----------
+    let lastSentLabel = null;
+    const PROB_THRESHOLD = 0.6; // keep this consistent with your earlier logic
+
+    function mapPredictionLabel(label){
+      // if you want to map labels to micro:bit friendly strings (optional)
+      // return label.toLowerCase();
+      return label;
+    }
+
+    async function runPredictionLoop(){
+      // create an offscreen canvas sized for your model (224x224)
+      const webcamCanvas = document.createElement('canvas');
+      webcamCanvas.width = 224; webcamCanvas.height = 224;
+      const ctx = webcamCanvas.getContext('2d');
+
+      async function loop(){
+        if(!video || video.readyState < 2){ requestAnimationFrame(loop); return; }
+        // draw scaled video to canvas
+        ctx.drawImage(video, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        let img = tf.browser.fromPixels(webcamCanvas).toFloat().expandDims();
+        // if model expects normalization, add here (depends on your model)
+        // e.g.: img = img.div(255.0);
         const prediction = model.predict(img);
         const data = await prediction.data();
         img.dispose(); prediction.dispose();
 
-        const maxIndex = data.indexOf(Math.max(...data));
-        const bestClass = labels[maxIndex] || `Class ${maxIndex}`;
-        const bestProb = Math.max(...data);
+        // find best
+        let bestProb = -1, bestIndex = 0;
+        for(let i=0;i<data.length;i++){ if(data[i] > bestProb){ bestProb = data[i]; bestIndex = i; } }
+        const bestClass = labels[bestIndex] || `Class ${bestIndex}`;
+        const bestProbVal = bestProb;
 
-        if (bestProb >= 0.6) {
-          predDiv.style.color = colors[maxIndex % colors.length];
-          predDiv.innerHTML = bestClass;
-          if (txCharacteristic) await sendToMicrobit(bestClass);
+        // UI update
+        if(bestProbVal >= PROB_THRESHOLD){
+          predDiv.style.color = colors[bestIndex % colors.length];
+          predDiv.innerHTML = `${bestClass} (${(bestProbVal*100).toFixed(0)}%)`;
+
+          // Only send when label changed from last sent
+          if(bestClass !== lastSentLabel){
+            lastSentLabel = bestClass;
+            const payload = mapPredictionLabel(bestClass);
+            // send asynchronously (don't block UI)
+            sendToMicrobit(payload);
+            safeLog('Prediction changed - sent ->', payload);
+          } else {
+            // same as last; do not re-send
+          }
         } else {
-          predDiv.innerHTML = "";
+          // low confidence: optionally send "unknown" once when changing from a known label
+          predDiv.innerHTML = '';
+          if(lastSentLabel !== null){
+            // change detected: no confident class — decide whether to send a 'stop' or 'unknown' message
+            // for now we will NOT send anything unless you want a specific 'stop' command
+            // If you want to send a stop, uncomment the next lines:
+            // lastSentLabel = null;
+            // sendToMicrobit('STOP');
+          }
         }
 
         requestAnimationFrame(loop);
@@ -177,31 +323,15 @@
       loop();
     }
 
-    async function connectMicrobit() {
-      try {
-        statusDiv.style.color = "#00c3ff";
-        statusDiv.innerHTML = "🔍 Scanning for Bluetooth devices...";
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-        txCharacteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-        statusDiv.style.color = "#00ff99";
-        statusDiv.innerHTML = `✅ Connected to ${device.name || "micro:bit"}`;
-      } catch (err) {
-        console.error(err);
-        statusDiv.style.color = "#ff5555";
-        statusDiv.innerHTML = "❌ Bluetooth connection failed.";
-      }
-    }
+    // Optional: expose a small helper to force-send (for debugging)
+    window._sendToMicrobitNow = sendToMicrobit;
 
-    async function sendToMicrobit(text) {
-      if (!txCharacteristic) return;
-      const encoder = new TextEncoder();
-      await txCharacteristic.writeValue(encoder.encode(text + "\n"));
-    }
+    // clean up on page unload
+    window.addEventListener('beforeunload', async () => {
+      try { if(notifyChar && notifyChar.stopNotifications) await notifyChar.stopNotifications(); } catch(e){}
+      try { if(bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch(e){}
+    });
+
   </script>
 </body>
 </html>
