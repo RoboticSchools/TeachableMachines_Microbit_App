@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <header class="top-header">
+    <img src="logo.png" alt="Robotic Schools Logo" class="logo">
+  </header>
+
   <meta charset="UTF-8">
   <title>Teachable Machine + micro:bit (Improved BLE)</title>
   <style>
@@ -13,6 +17,27 @@
     input { width:400px;padding:8px;border-radius:6px;border:none;outline:none;font-size:14px;margin:8px;background:#222;color:#fff;}
     #status { font-size:16px;margin-top:8px;color:#00c3ff;height:24px; }
     .small { font-size:13px; opacity:0.9; margin-top:6px;}
+
+    .top-header {
+      position: fixed;
+      top: 20px;
+      left: 30px;
+      display: flex;
+      align-items: center;
+      z-index: 100;
+    }
+    
+    .logo {
+      height: 70px;
+      width: auto;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    
+    .logo:hover {
+      transform: scale(1.05);
+    }
+
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
