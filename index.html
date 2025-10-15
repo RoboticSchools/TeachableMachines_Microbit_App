@@ -38,15 +38,23 @@
       gap:12px;
       align-items:center;
     }
-    .model-row{
+    /* New single-row controls */
+    .controls-row{
       width:100%;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .model-row{
       display:flex;
       gap:10px;
       align-items:center;
       justify-content:center;
     }
     .model-row input[type="text"]{
-      width:70%;
+      width:420px;
       max-width:760px;
       padding:12px 14px;
       border-radius:12px;
@@ -72,7 +80,7 @@
       gap:14px;
       align-items:center;
       justify-content:center;
-      margin-top:6px;
+      margin-top:0;
     }
     .mid-buttons button{
       padding:12px 22px;
@@ -120,6 +128,7 @@
       border-radius:18px;
       box-shadow:0 12px 40px rgba(0,0,0,0.6);
       display:flex;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
     }
@@ -131,7 +140,11 @@
       object-fit:cover;
       display:block;
       box-shadow:0 6px 18px rgba(0,0,0,0.6);
+      transform: none;
     }
+
+    .mirror-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+    .mirror-row input[type="checkbox"]{width:18px;height:18px}
 
     .right-col{
       width:var(--ui-width);
@@ -186,14 +199,17 @@
     <h1>Teachable Machines + AI Vision Micro:bit</h1>
 
     <div class="top-controls">
-      <div class="model-row">
-        <input id="modelUrl" type="text" placeholder="Paste the Model URL ..." />
-        <button id="loadBtn">Load Model</button>
-      </div>
+      <!-- single row with model input + buttons -->
+      <div class="controls-row">
+        <div class="model-row">
+          <input id="modelUrl" type="text" placeholder="Paste the Model URL ..." />
+          <button id="loadBtn">Load Model</button>
+        </div>
 
-      <div class="mid-buttons">
-        <button id="camBtn">Start Camera</button>
-        <button id="connectBtn">connect micro:bit</button>
+        <div class="mid-buttons">
+          <button id="camBtn">Start Camera</button>
+          <button id="connectBtn">connect micro:bit</button>
+        </div>
       </div>
 
       <div class="status-bar">
@@ -204,6 +220,12 @@
     <div class="content">
       <div class="video-card">
         <video id="video" autoplay playsinline muted></video>
+
+        <!-- mirror toggle under the video view -->
+        <div class="mirror-row">
+          <label style="font-weight:600">Mirror video</label>
+          <input id="mirrorChk" type="checkbox" />
+        </div>
       </div>
 
       <div class="right-col">
@@ -245,6 +267,7 @@ const threshRange = document.getElementById('thresh');
 const threshPct = document.getElementById('threshPct');
 const classesEl = document.getElementById('classes');
 const deviceNameEl = document.getElementById('deviceName');
+const mirrorChk = document.getElementById('mirrorChk');
 
 const STABLE_FRAMES_REQUIRED = 8;
 const COOLDOWN_MS = 700;
@@ -289,6 +312,11 @@ threshRange.addEventListener('input', ()=>{ threshPct.textContent = threshRange.
 loadBtn.addEventListener('click', loadModel);
 camBtn.addEventListener('click', startCamera);
 connectBtn.addEventListener('click', connectMicrobit);
+mirrorChk.addEventListener('change', ()=>{
+  // visual mirror
+  if(mirrorChk.checked) video.style.transform = 'scaleX(-1)';
+  else video.style.transform = 'none';
+});
 
 /* ---------- helpers ---------- */
 function normalizeBase(urlOrId){
@@ -519,7 +547,16 @@ async function predictLoop(){
   async function step(){
     if(!running) return;
     try {
+      // draw video frame to offscreen canvas
+      // respect mirror checkbox so UI and model see same orientation
+      ctx.save();
+      if(mirrorChk.checked){
+        ctx.translate(off.width, 0);
+        ctx.scale(-1, 1);
+      }
       ctx.drawImage(video, 0, 0, off.width, off.height);
+      ctx.restore();
+
       const logits = await tf.tidy(() => {
         let img = tf.browser.fromPixels(off);
         if(img.shape[2] === 4) img = img.slice([0,0,0],[img.shape[0],img.shape[1],3]);
