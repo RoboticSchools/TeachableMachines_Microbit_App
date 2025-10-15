@@ -28,19 +28,6 @@
       align-items:center;
     }
 
-    /* reposition logo to left top corner */
-    .top-header{
-      position:fixed;
-      top:100px;
-      left:100px;
-      z-index:100;
-    }
-    .logo{
-      height:56px;
-      width:auto;
-      display:block;
-    }
-
     h1{font-weight:600;margin:6px 0 0 0;text-align:center}
 
     /* top controls */
@@ -51,6 +38,7 @@
       gap:12px;
       align-items:center;
     }
+    /* New single-row controls */
     .controls-row{
       width:100%;
       display:flex;
@@ -124,6 +112,7 @@
       box-shadow:0 6px 20px rgba(0,0,0,0.45);
     }
 
+    /* main layout */
     .content {
       width:100%;
       display:flex;
@@ -134,7 +123,7 @@
     }
 
     .video-card{
-      background:linear-gradient(180deg,#0b0c0e,#0f1115);
+      background:linear-gradient(180deg,#0b0c0e, #0f1115);
       padding:14px;
       border-radius:18px;
       box-shadow:0 12px 40px rgba(0,0,0,0.6);
@@ -151,7 +140,7 @@
       object-fit:cover;
       display:block;
       box-shadow:0 6px 18px rgba(0,0,0,0.6);
-      transform:none;
+      transform: none;
     }
 
     .mirror-row{display:flex;align-items:center;gap:10px;margin-top:10px}
@@ -195,6 +184,7 @@
 
     .deviceName{font-size:13px;color:#bfefff;margin-top:6px;text-align:center}
 
+    /* responsive */
     @media (max-width:980px){
       .content{flex-direction:column;align-items:center}
       video#video{width:420px;height:320px}
@@ -202,14 +192,433 @@
       .model-row input[type="text"]{width:65%}
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 </head>
 <body>
-  <header class="top-header">
-    <img src="logo.png" alt="Robotic Schools Logo" class="logo">
-  </header>
-
   <div class="page">
     <h1>Teachable Machines + AI Vision Micro:bit</h1>
+
+    <div class="top-controls">
+      <!-- single row with model input + buttons -->
+      <div class="controls-row">
+        <div class="model-row">
+          <input id="modelUrl" type="text" placeholder="Paste the Model URL ..." />
+          <button id="loadBtn">Load Model</button>
+        </div>
+
+        <div class="mid-buttons">
+          <button id="camBtn">Start Camera</button>
+          <button id="connectBtn">connect micro:bit</button>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div id="status" class="status">status label</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="video-card">
+        <video id="video" autoplay playsinline muted></video>
+
+        <!-- mirror toggle under the video view -->
+        <div class="mirror-row">
+          <label style="font-weight:600">Mirror video</label>
+          <input id="mirrorChk" type="checkbox" />
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700">Threshold</div>
+          </div>
+          <div style="height:10px"></div>
+          <div class="slider-row">
+            <input id="thresh" type="range" min="30" max="95" value="65" />
+            <div class="percent" id="threshPct">65%</div>
+          </div>
+        </div>
+
+        <div class="card" id="mainCard">
+          <div id="mainLabel">—</div>
+        </div>
+
+        <div class="card" style="padding:10px;">
+          <div style="font-weight:700;margin-bottom:8px">Classes</div>
+          <div class="classes-list" id="classes"></div>
+        </div>
+
+        <div class="deviceName" id="deviceName"></div>
+      </div>
+    </div>
   </div>
+
+<script>
+/* ---------- UI elements ---------- */
+const video = document.getElementById('video');
+const loadBtn = document.getElementById('loadBtn');
+const camBtn = document.getElementById('camBtn');
+const connectBtn = document.getElementById('connectBtn');
+const statusEl = document.getElementById('status');
+const modelUrlInput = document.getElementById('modelUrl');
+const mainLabelEl = document.getElementById('mainLabel');
+const threshRange = document.getElementById('thresh');
+const threshPct = document.getElementById('threshPct');
+const classesEl = document.getElementById('classes');
+const deviceNameEl = document.getElementById('deviceName');
+const mirrorChk = document.getElementById('mirrorChk');
+
+const STABLE_FRAMES_REQUIRED = 8;
+const COOLDOWN_MS = 700;
+
+/* ---------- model / camera state ---------- */
+let model = null;
+let labels = [];
+let inputWidth = 224, inputHeight = 224;
+let stream = null;
+let running = false;
+
+let candidateIdx = null;
+let stableCount = 0;
+let lastAcceptedIdx = null;
+let lastAcceptedAt = 0;
+
+/* ---------- BLE UART (micro:bit) ---------- */
+const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_NOTIFY_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_WRITE_CHAR_UUID  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+let bleDevice = null;
+let bleServer = null;
+let uartService = null;
+let notifyChar = null;
+let writeChar = null;
+const encoder = new TextEncoder();
+let writeQueue = Promise.resolve();
+let connected = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 8;
+
+function setStatus(txt, color = '#9fdfff'){
+  statusEl.textContent = txt;
+  statusEl.style.color = color;
+}
+function queueGattOperation(op){ writeQueue = writeQueue.then(op, op); return writeQueue; }
+function safeLog(...args){ console.log('[BLE]', ...args); }
+
+/* ---------- UI bindings ---------- */
+threshRange.addEventListener('input', ()=>{ threshPct.textContent = threshRange.value + '%'; });
+loadBtn.addEventListener('click', loadModel);
+camBtn.addEventListener('click', startCamera);
+connectBtn.addEventListener('click', connectMicrobit);
+mirrorChk.addEventListener('change', ()=>{
+  // visual mirror
+  if(mirrorChk.checked) video.style.transform = 'scaleX(-1)';
+  else video.style.transform = 'none';
+});
+
+/* ---------- helpers ---------- */
+function normalizeBase(urlOrId){
+  if(!urlOrId) return null;
+  const s = urlOrId.trim();
+  if(!s) return null;
+  if(s.startsWith('http')){
+    try{
+      const u = new URL(s);
+      const parts = u.pathname.split('/').filter(Boolean);
+      const idx = parts.indexOf('models');
+      if(idx>=0 && parts.length>idx+1) return `https://teachablemachine.withgoogle.com/models/${parts[idx+1]}/`;
+    }catch(e){}
+    if(s.endsWith('model.json')) return s.replace(/model\.json$/,'');
+    return s.endsWith('/') ? s : s + '/';
+  } else {
+    return `https://teachablemachine.withgoogle.com/models/${s}/`;
+  }
+}
+
+/* ---------- model loading ---------- */
+async function loadModel(){
+  const base = normalizeBase(modelUrlInput.value);
+  if(!base){ setStatus('Provide model URL or id', '#ffcc66'); return; }
+  setStatus('Loading model...');
+  try {
+    const modelURL = base + 'model.json';
+    const metaURL = base + 'metadata.json';
+    model = await tf.loadLayersModel(modelURL);
+    try {
+      const r = await fetch(metaURL); const meta = await r.json();
+      if(Array.isArray(meta.labels)) labels = meta.labels.map(l => typeof l === 'string' ? l : (l.name || l));
+      else if(Array.isArray(meta.class_names)) labels = meta.class_names;
+      else if(Array.isArray(meta['labels'])) labels = meta['labels'];
+    } catch(e){}
+    if(!labels.length){
+      const outShape = model.outputs?.[0]?.shape;
+      const outLen = outShape ? outShape[outShape.length-1] : 3;
+      labels = new Array(outLen).fill(0).map((_,i)=>`Class ${i}`);
+    }
+    const inShape = model.inputs?.[0]?.shape;
+    if(inShape && inShape.length>=4){
+      inputHeight = inShape[1] || inputHeight;
+      inputWidth = inShape[2] || inputWidth;
+    }
+    setStatus('Model loaded — ' + labels.length + ' classes', '#00ff99');
+    renderClassesPlaceholder();
+  } catch(err){
+    console.error(err);
+    setStatus('Model load failed — check URL/CORS', '#ff6b6b');
+    model = null;
+  }
+}
+
+/* ---------- camera ---------- */
+async function startCamera(){
+  if(stream){ setStatus('Camera already running'); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    setStatus('Camera started', '#9fdfff');
+    if(model && !running) predictLoop();
+  } catch(err){
+    console.error('Camera error', err);
+    setStatus(err.name === 'NotAllowedError' ? 'Camera permission denied' : 'Camera error: ' + (err.message || err.name), '#ff6b6b');
+  }
+}
+
+/* ---------- classes UI ---------- */
+function renderClassesPlaceholder(){
+  classesEl.innerHTML = '';
+  labels.forEach((l,i)=>{
+    const row = document.createElement('div');
+    row.className = 'class-row';
+    row.innerHTML = `<div class="class-name">${l}</div><div class="class-pct" id="p-${i}">—</div>`;
+    classesEl.appendChild(row);
+  });
+}
+
+/* ---------- BLE connect / send ---------- */
+async function connectMicrobit(){
+  try {
+    setStatus('Requesting micro:bit...', '#00c3ff');
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [UART_SERVICE_UUID]
+    });
+    if(!bleDevice) throw new Error('No device selected');
+    bleDevice.addEventListener('gattserverdisconnected', handleDisconnected);
+    deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
+
+    setStatus('Connecting...', '#00c3ff');
+    bleServer = await bleDevice.gatt.connect();
+
+    setStatus('Getting UART service...', '#00c3ff');
+    uartService = await bleServer.getPrimaryService(UART_SERVICE_UUID);
+
+    setStatus('Getting characteristics...', '#00c3ff');
+    writeChar = await uartService.getCharacteristic(UART_WRITE_CHAR_UUID).catch(()=>null);
+    notifyChar = await uartService.getCharacteristic(UART_NOTIFY_CHAR_UUID).catch(()=>null);
+    if(notifyChar && (notifyChar.properties.notify || notifyChar.properties.indicate)){
+      await notifyChar.startNotifications();
+      notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+    }
+
+    connected = true;
+    reconnectAttempts = 0;
+    setStatus(`Connected: ${bleDevice.name || 'micro:bit'}`, '#00ff99');
+    connectBtn.textContent = 'Connected';
+    deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
+  } catch (err) {
+    console.error('Connect failed', err);
+    setStatus('Bluetooth connection failed (try again)', '#ff6b6b');
+    deviceNameEl.textContent = '';
+    bleDevice = null;
+    connected = false;
+    connectBtn.textContent = 'connect micro:bit';
+  }
+}
+
+function handleDisconnected(event){
+  const dev = event.target;
+  safeLog(`Device ${dev.name} disconnected`);
+  connected = false;
+  setStatus('Disconnected — attempting reconnect...', 'orange');
+  attemptReconnect();
+}
+
+function attemptReconnect(){
+  if(!bleDevice){ setStatus('Not connected', '#ffcc66'); connectBtn.textContent = 'connect micro:bit'; return; }
+  reconnectAttempts++;
+  if(reconnectAttempts > MAX_RECONNECT_ATTEMPTS){
+    setStatus('Reconnect failed — click Connect', '#ff6b6b');
+    connectBtn.textContent = 'connect micro:bit';
+    deviceNameEl.textContent = '';
+    return;
+  }
+  const backoffMs = Math.min(1000 * Math.pow(2, reconnectAttempts-1), 20000);
+  safeLog('Reconnect attempt', reconnectAttempts, 'next in ms', backoffMs);
+  setTimeout(async () => {
+    try {
+      setStatus(`Reconnect attempt ${reconnectAttempts}...`, '#00c3ff');
+      bleServer = await bleDevice.gatt.connect();
+      uartService = await bleServer.getPrimaryService(UART_SERVICE_UUID);
+      writeChar = await uartService.getCharacteristic(UART_WRITE_CHAR_UUID).catch(()=>null);
+      notifyChar = await uartService.getCharacteristic(UART_NOTIFY_CHAR_UUID).catch(()=>null);
+      if(notifyChar && (notifyChar.properties.notify || notifyChar.properties.indicate)){
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+      }
+      connected = true;
+      reconnectAttempts = 0;
+      setStatus(`Reconnected: ${bleDevice.name || 'micro:bit'}`, '#00ff99');
+      connectBtn.textContent = 'Connected';
+      deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
+    } catch(e){
+      console.warn('Reconnect attempt failed', e);
+      attemptReconnect();
+    }
+  }, backoffMs);
+}
+
+function onNotify(ev){
+  const value = ev.target.value;
+  const text = new TextDecoder().decode(value);
+  safeLog('Notified:', text);
+}
+
+function sendUARTRaw(bytes){
+  if(!writeChar){
+    safeLog('No write characteristic - cannot send');
+    setStatus('Not writable - reconnect or check micro:bit firmware', '#ff6b6b');
+    return Promise.reject(new Error('No write characteristic'));
+  }
+  return queueGattOperation(async () => {
+    try {
+      if(typeof writeChar.writeValue === 'function'){
+        await writeChar.writeValue(bytes);
+      } else if(typeof writeChar.writeValueWithoutResponse === 'function'){
+        await writeChar.writeValueWithoutResponse(bytes);
+      } else {
+        if(writeChar.properties && writeChar.properties.writeWithoutResponse && typeof writeChar.writeValue === 'function'){
+          await writeChar.writeValue(bytes);
+        } else {
+          throw new Error('No writable method on characteristic');
+        }
+      }
+      safeLog('Sent bytes', bytes);
+    } catch (err){
+      console.error('Write failed', err);
+      throw err;
+    }
+  });
+}
+
+async function sendToMicrobit(text){
+  if(!connected || !writeChar){
+    safeLog('Skipped send - not connected or writable');
+    return;
+  }
+  try {
+    const payload = encoder.encode(String(text) + '\n');
+    await sendUARTRaw(payload);
+  } catch(e){
+    console.error('sendToMicrobit error', e);
+  }
+}
+
+/* ---------- prediction loop (stable) ---------- */
+function renderProbabilities(data){
+  data.forEach((p,i)=>{
+    const el = document.getElementById('p-'+i);
+    if(el) el.textContent = (p*100).toFixed(0) + '%';
+  });
+}
+
+async function predictLoop(){
+  if(!model){ setStatus('Load model first', '#ffcc66'); return; }
+  if(!stream){ setStatus('Start camera first', '#ffcc66'); return; }
+  running = true;
+  setStatus('Predicting...', '#9fdfff');
+
+  const off = document.createElement('canvas');
+  off.width = inputWidth; off.height = inputHeight;
+  const ctx = off.getContext('2d');
+
+  async function step(){
+    if(!running) return;
+    try {
+      // draw video frame to offscreen canvas
+      // respect mirror checkbox so UI and model see same orientation
+      ctx.save();
+      if(mirrorChk.checked){
+        ctx.translate(off.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, 0, 0, off.width, off.height);
+      ctx.restore();
+
+      const logits = await tf.tidy(() => {
+        let img = tf.browser.fromPixels(off);
+        if(img.shape[2] === 4) img = img.slice([0,0,0],[img.shape[0],img.shape[1],3]);
+        img = img.toFloat().div(255.0);
+        img = img.expandDims(0);
+        return model.predict(img);
+      });
+      let data = Array.from(await logits.data());
+      logits.dispose();
+      const sum = data.reduce((a,b)=>a+b,0);
+      if(!(sum>0.9 && sum<1.1)){
+        const soft = tf.tidy(()=>tf.softmax(tf.tensor(data)));
+        data = Array.from(await soft.data());
+        soft.dispose();
+      }
+
+      if(labels.length) renderProbabilities(data);
+
+      const confThreshold = Math.max(0, Math.min(1, (parseInt(threshRange.value)||65)/100));
+      let bestIdx = 0; let bestProb = data[0]||0;
+      for(let i=1;i<data.length;i++){ if(data[i]>bestProb){ bestProb=data[i]; bestIdx=i; } }
+
+      const now = Date.now();
+      if(lastAcceptedAt && (now - lastAcceptedAt) < COOLDOWN_MS){
+        if(lastAcceptedIdx !== null){
+          mainLabelEl.textContent = `${labels[lastAcceptedIdx] || ('Class '+lastAcceptedIdx)}`;
+        }
+      } else {
+        if(bestProb >= confThreshold){
+          if(candidateIdx === bestIdx) stableCount++;
+          else { candidateIdx = bestIdx; stableCount = 1; }
+          if(stableCount >= STABLE_FRAMES_REQUIRED){
+            if(lastAcceptedIdx !== candidateIdx){
+              lastAcceptedIdx = candidateIdx;
+              lastAcceptedAt = Date.now();
+              mainLabelEl.textContent = `${labels[lastAcceptedIdx] || ('Class '+lastAcceptedIdx)}`;
+              try { sendToMicrobit(labels[lastAcceptedIdx]); } catch(e){ console.error(e); }
+            }
+          }
+        }
+      }
+    } catch(err){
+      console.error('Prediction loop error', err);
+      setStatus('Prediction error — see console', '#ff6b6b');
+      running = false;
+      return;
+    }
+    requestAnimationFrame(step);
+  }
+  step();
+}
+
+/* ---------- cleanup ---------- */
+window.addEventListener('beforeunload', ()=>{
+  try { if(stream) stream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  try { if(notifyChar && notifyChar.stopNotifications) notifyChar.stopNotifications(); } catch(e){}
+  try { if(bleDevice && bleDevice.gatt && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch(e){}
+});
+
+/* ---------- initial UI ---------- */
+setStatus('Ready — paste model URL, Load Model, Start Camera');
+threshPct.textContent = threshRange.value + '%';
+</script>
 </body>
 </html>
