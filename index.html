@@ -30,6 +30,10 @@
 
     h1{font-weight:600;margin:6px 0 0 0;text-align:center}
 
+    /* header logo */
+    .top-header{ width:100%; display:flex; justify-content:center; align-items:center; margin-bottom:8px; }
+    .logo{ height:44px; width:auto; display:block; }
+
     /* top controls */
     .top-controls{
       width:100%;
@@ -195,8 +199,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 </head>
 <body>
-  <div class="page">
-    <h1>Teachable Machines + AI Vision Micro:bit</h1>
+  <div class="page">\n    <header class="top-header">\n      <img src="logo.png" alt="Robotic Schools Logo" class="logo">\n    </header>\n    <h1>Teachable Machines + AI Vision Micro:bit</h1>
 
     <div class="top-controls">
       <!-- single row with model input + buttons -->
