@@ -19,7 +19,6 @@
       --ui-width:420px;
     }
 
-    /* logo in top-left (copied / adapted from your second file) */
     .top-header {
       position: fixed;
       top: 35px;
@@ -48,7 +47,6 @@
 
     h1{font-weight:600;margin:6px 0 0 0;text-align:center}
 
-    /* top controls */
     .top-controls{
       width:100%;
       display:flex;
@@ -56,7 +54,6 @@
       gap:12px;
       align-items:center;
     }
-    /* New single-row controls */
     .controls-row{
       width:100%;
       display:flex;
@@ -130,7 +127,6 @@
       box-shadow:0 6px 20px rgba(0,0,0,0.45);
     }
 
-    /* main layout */
     .content {
       width:100%;
       display:flex;
@@ -150,7 +146,7 @@
       align-items:center;
       justify-content:center;
     }
-    /* video is mirrored by default (always) */
+
     video#video{
       width:520px;
       height:390px;
@@ -200,7 +196,6 @@
 
     .deviceName{font-size:13px;color:#bfefff;margin-top:6px;text-align:center}
 
-    /* responsive */
     @media (max-width:980px){
       .content{flex-direction:column;align-items:center}
       video#video{width:420px;height:320px}
@@ -211,7 +206,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 </head>
 <body>
-  <!-- logo (top-left) -->
   <header class="top-header">
     <img src="logo.png" alt="Robotic Schools Logo" class="logo">
   </header>
@@ -220,7 +214,6 @@
     <h1>Teachable Machines + AI Vision Micro:bit</h1>
 
     <div class="top-controls">
-      <!-- single row with model input + buttons -->
       <div class="controls-row">
         <div class="model-row">
           <input id="modelUrl" type="text" placeholder="Paste the Model URL ..." />
@@ -228,7 +221,6 @@
         </div>
 
         <div class="mid-buttons">
-          <button id="camBtn">Start Camera</button>
           <button id="connectBtn">connect micro:bit</button>
         </div>
       </div>
@@ -241,7 +233,6 @@
     <div class="content">
       <div class="video-card">
         <video id="video" autoplay playsinline muted></video>
-        <!-- mirror option removed (video is mirrored by default) -->
       </div>
 
       <div class="right-col">
@@ -271,10 +262,8 @@
   </div>
 
 <script>
-/* ---------- UI elements ---------- */
 const video = document.getElementById('video');
 const loadBtn = document.getElementById('loadBtn');
-const camBtn = document.getElementById('camBtn');
 const connectBtn = document.getElementById('connectBtn');
 const statusEl = document.getElementById('status');
 const modelUrlInput = document.getElementById('modelUrl');
@@ -287,7 +276,6 @@ const deviceNameEl = document.getElementById('deviceName');
 const STABLE_FRAMES_REQUIRED = 8;
 const COOLDOWN_MS = 700;
 
-/* ---------- model / camera state ---------- */
 let model = null;
 let labels = [];
 let inputWidth = 224, inputHeight = 224;
@@ -299,7 +287,6 @@ let stableCount = 0;
 let lastAcceptedIdx = null;
 let lastAcceptedAt = 0;
 
-/* ---------- BLE UART (micro:bit) ---------- */
 const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const UART_NOTIFY_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 const UART_WRITE_CHAR_UUID  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -319,16 +306,14 @@ function setStatus(txt, color = '#9fdfff'){
   statusEl.textContent = txt;
   statusEl.style.color = color;
 }
+
 function queueGattOperation(op){ writeQueue = writeQueue.then(op, op); return writeQueue; }
 function safeLog(...args){ console.log('[BLE]', ...args); }
 
-/* ---------- UI bindings ---------- */
 threshRange.addEventListener('input', ()=>{ threshPct.textContent = threshRange.value + '%'; });
 loadBtn.addEventListener('click', loadModel);
-camBtn.addEventListener('click', startCamera);
 connectBtn.addEventListener('click', connectMicrobit);
 
-/* ---------- helpers ---------- */
 function normalizeBase(urlOrId){
   if(!urlOrId) return null;
   const s = urlOrId.trim();
@@ -347,7 +332,6 @@ function normalizeBase(urlOrId){
   }
 }
 
-/* ---------- model loading ---------- */
 async function loadModel(){
   const base = normalizeBase(modelUrlInput.value);
   if(!base){ setStatus('Provide model URL or id', '#ffcc66'); return; }
@@ -374,6 +358,7 @@ async function loadModel(){
     }
     setStatus('Model loaded — ' + labels.length + ' classes', '#00ff99');
     renderClassesPlaceholder();
+    if(stream && !running) predictLoop();
   } catch(err){
     console.error(err);
     setStatus('Model load failed — check URL/CORS', '#ff6b6b');
@@ -381,14 +366,12 @@ async function loadModel(){
   }
 }
 
-/* ---------- camera ---------- */
 async function startCamera(){
   if(stream){ setStatus('Camera already running'); return; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
     video.srcObject = stream;
     await video.play();
-    // video element is visually mirrored by CSS (transform: scaleX(-1))
     setStatus('Camera started', '#9fdfff');
     if(model && !running) predictLoop();
   } catch(err){
@@ -397,7 +380,6 @@ async function startCamera(){
   }
 }
 
-/* ---------- classes UI ---------- */
 function renderClassesPlaceholder(){
   classesEl.innerHTML = '';
   labels.forEach((l,i)=>{
@@ -408,7 +390,6 @@ function renderClassesPlaceholder(){
   });
 }
 
-/* ---------- BLE connect / send ---------- */
 async function connectMicrobit(){
   try {
     setStatus('Requesting micro:bit...', '#00c3ff');
@@ -537,7 +518,6 @@ async function sendToMicrobit(text){
   }
 }
 
-/* ---------- prediction loop (stable) ---------- */
 function renderProbabilities(data){
   data.forEach((p,i)=>{
     const el = document.getElementById('p-'+i);
@@ -558,10 +538,7 @@ async function predictLoop(){
   async function step(){
     if(!running) return;
     try {
-      // draw video frame to offscreen canvas
-      // video is mirrored visually; we also flip while drawing so model sees mirrored frame
       ctx.save();
-      // ALWAYS mirror when drawing (mirror option removed)
       ctx.translate(off.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, off.width, off.height);
@@ -619,16 +596,22 @@ async function predictLoop(){
   step();
 }
 
-/* ---------- cleanup ---------- */
 window.addEventListener('beforeunload', ()=>{
   try { if(stream) stream.getTracks().forEach(t=>t.stop()); } catch(e){}
   try { if(notifyChar && notifyChar.stopNotifications) notifyChar.stopNotifications(); } catch(e){}
   try { if(bleDevice && bleDevice.gatt && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch(e){}
 });
 
-/* ---------- initial UI ---------- */
-setStatus('Ready — paste model URL, Load Model, Start Camera');
+setStatus('Ready — paste model URL, Load Model, connecting camera automatically');
 threshPct.textContent = threshRange.value + '%';
+
+(async function autoStart(){
+  try {
+    await startCamera();
+  } catch(e){
+    // startCamera handles its own errors and status updates
+  }
+})();
 </script>
 </body>
 </html>
