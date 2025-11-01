@@ -5,23 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Teachable Machines + AI Vision — Micro:bit + Arduino (rbs)</title>
 
-  <!-- TFJS + Teachable Machine helper -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  <!-- TFJS + Teachable Machine helper (latest for best runtime improvements) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
   <style>
-    :root{
-      --bg:#0d0f12;
-      --card:rgba(255,255,255,0.03);
-      --muted:#9fdfff;
-      --accent-color:#00c3ff;
-      --accent-2:#00ffa3;
-      --radius:14px;
-      --gap:16px;
-      --max-width:1180px;
-      --slider-height:10px;
-      --thumb-size:22px;
-    }
+    :root{--bg:#0d0f12;--card:rgba(255,255,255,0.03);--muted:#9fdfff;--accent-color:#00c3ff;--accent-2:#00ffa3;--radius:14px;--gap:16px;--max-width:1180px;--slider-height:10px;--thumb-size:22px}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:#eafcff;font-family:Inter,Segoe UI,Arial,sans-serif}
     .top-header{position:fixed;top:18px;left:18px;z-index:200;display:flex;align-items:center;gap:12px}
@@ -31,92 +20,30 @@
     h1{margin:0;font-size:20px;font-weight:800;text-align:center}
     .controls{width:100%;display:flex;flex-direction:column;gap:14px;align-items:center}
     .model-row{display:flex;gap:12px;align-items:center}
-    input[type="text"]{width:520px;max-width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:#0b0c0e;color:#fff;font-size:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);transition:box-shadow 160ms ease, border-color 160ms ease;}
-    input[type="text"]:focus{outline:none;border-color:var(--accent-color);box-shadow:0 6px 18px rgba(0,195,255,0.08),0 0 0 4px rgba(0,195,255,0.06);}
+    input[type="text"]{width:520px;max-width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:#0b0c0e;color:#fff;font-size:14px}
     .btn{padding:10px 14px;border-radius:12px;border:0;font-weight:700;cursor:pointer;color:#002b30; background:linear-gradient(90deg,var(--accent-color),var(--accent-2)); box-shadow:0 8px 24px rgba(0,195,255,0.08); display:inline-flex;align-items:center;justify-content:center}
-    .btn.ghost{background:rgba(255,255,255,0.02); color:#bff6ff; box-shadow:none}
     .controls-row-second{display:flex;gap:18px;align-items:center;justify-content:center;width:100%;margin-top:6px;flex-wrap:wrap}
     .status{background:var(--card);padding:8px 12px;border-radius:12px;color:var(--muted);font-weight:700;min-width:240px;text-align:center}
     .classes-panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.015));border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6);max-height:640px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
-    .classes-panel h3{margin:0;padding-left:10px} /* <-- added left spacing */
+    .classes-panel h3{margin:0;padding-left:10px}
     .classes-list{display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:6px;margin-top:6px}
     .class-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.012);font-weight:600}
     .video-card{background:#000;border-radius:var(--radius);overflow:hidden;min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
-    .webcam-canvas{border-radius:12px;max-width:720px;width:100%;height:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.6);background:#000;object-fit:cover;}
-    .webcam-canvas.smaller { max-height:320px; height:320px; width:auto; }
+    .webcam-canvas{border-radius:12px;max-width:720px;width:100%;height:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.6);background:#000;object-fit:cover}
+    .webcam-canvas.smaller { max-height:400px; height:400px; width:auto; }
     .right-col{display:flex;flex-direction:column;gap:12px;align-items:stretch}
     .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.015));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);box-shadow:0 8px 30px rgba(0,0,0,0.45)}
-    /* slider */
     .slider-card{padding:18px;display:flex;flex-direction:column;gap:12px;align-items:stretch}
     .slider-wrap{position:relative;width:100%;padding-top:18px}
-    input[type="range"]{
-      -webkit-appearance:none;
-      appearance:none;
-      width:100%;
-      height:var(--slider-height);
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--accent-color),var(--accent-2));
-      outline:none;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
-    }
+    input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:var(--slider-height);border-radius:999px;background:linear-gradient(90deg,var(--accent-color),var(--accent-2));outline:none}
     input[type="range"]::-webkit-slider-runnable-track{height:var(--slider-height);border-radius:999px}
     input[type="range"]::-moz-range-track{height:var(--slider-height);border-radius:999px}
-    input[type="range"]::-webkit-slider-thumb{
-      -webkit-appearance:none;
-      appearance:none;
-      width:var(--thumb-size);
-      height:var(--thumb-size);
-      border-radius:50%;
-      background:linear-gradient(180deg,#fff,#dffaff);
-      border:3px solid rgba(0,195,255,0.18);
-      box-shadow:0 6px 18px rgba(0,0,0,0.5);
-      margin-top: calc((var(--thumb-size) / -2) + (var(--slider-height)/2));
-    }
-    input[type="range"]::-moz-range-thumb{
-      width:var(--thumb-size);
-      height:var(--thumb-size);
-      border-radius:50%;
-      background:linear-gradient(180deg,#fff,#dffaff);
-      border:3px solid rgba(0,195,255,0.18);
-      box-shadow:0 6px 18px rgba(0,0,0,0.5);
-    }
-    .bubble{
-      position:absolute;
-      top:0;
-      transform:translateX(-50%);
-      background:linear-gradient(180deg,#002b30,#00404a);
-      color:#bff9ff;
-      padding:6px 8px;border-radius:8px;font-weight:800;font-size:12px;
-      box-shadow:0 6px 18px rgba(0,0,0,0.5);
-      pointer-events:none;
-      white-space:nowrap;
-    }
-    .bubble::after{
-      content:'';
-      position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      bottom:-6px;
-      width:10px;height:10px;background:linear-gradient(180deg,#002b30,#00404a);
-      transform:translateX(-50%) rotate(45deg);
-      border-radius:2px;
-    }
-    /* removed the small percent under slider, keep only bubble */
+    input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:var(--thumb-size);height:var(--thumb-size);border-radius:50%;background:linear-gradient(180deg,#fff,#dffaff);border:3px solid rgba(0,195,255,0.18);box-shadow:0 6px 18px rgba(0,0,0,0.5);margin-top: calc((var(--thumb-size) / -2) + (var(--slider-height)/2))}
+    .bubble{position:absolute;top:0;transform:translateX(-50%);background:linear-gradient(180deg,#002b30,#00404a);color:#bff9ff;padding:6px 8px;border-radius:8px;font-weight:800;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap}
     .slider-meta{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--muted);font-size:13px}
     #mainLabel{font-size:18px;font-weight:800;text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);color:#fff;min-height:52px;display:flex;align-items:center;justify-content:center}
-
-    @media(max-width:1100px){
-      .container{grid-template-columns:220px 1fr 320px;padding:14px}
-      .webcam-canvas.smaller{height:280px;max-height:280px}
-    }
-    @media(max-width:860px){
-      .container{grid-template-columns:1fr;gap:12px;margin-top:84px}
-      .classes-panel{order:-1;width:100%}
-      .video-card{width:100%}
-      .right-col{width:100%}
-      input[type="text"]{width:100%}
-      .controls-row-second{justify-content:space-between;padding:0 12px;gap:10px}
-    }
+    @media(max-width:1100px){.container{grid-template-columns:220px 1fr 320px;padding:14px}.webcam-canvas.smaller{height:320px;max-height:320px}}
+    @media(max-width:860px){.container{grid-template-columns:1fr;gap:12px;margin-top:84px}.classes-panel{order:-1;width:100%}.video-card{width:100%}.right-col{width:100%}input[type="text"]{width:100%}.controls-row-second{justify-content:space-between;padding:0 12px;gap:10px}}
   </style>
 </head>
 <body>
@@ -126,7 +53,7 @@
 
   <div class="container" role="main">
     <header class="page-header" aria-label="App header">
-      <h1>AI Computer Vision - Microbit + Arduino App</h1>
+      <h1>AI Computer Vision - Microbit + Arduino App (Optimized)</h1>
 
       <div class="controls">
         <div class="model-row">
@@ -151,8 +78,6 @@
       <div id="webcam-container" style="width:100%;display:flex;align-items:center;justify-content:center;">
         <video id="video" autoplay playsinline muted style="display:none"></video>
       </div>
-
-      <!-- flip preview toggle removed -->
     </main>
 
     <section class="right-col" aria-label="Controls & info">
@@ -166,7 +91,6 @@
           <div class="bubble" id="threshBubble">85%</div>
         </div>
 
-        <!-- removed percent under slider as requested; keep small spacer -->
         <div style="height:6px"></div>
       </div>
 
@@ -190,15 +114,12 @@
     const classCountEl = document.getElementById('classCount');
     const webcamContainer = document.getElementById('webcam-container');
 
-    /* apply gradient to primary buttons */
-    function applyButtonGradient(btn){
+    [loadBtn, connectBtn, connectArduinoBtn].forEach(btn => {
       btn.style.background = 'linear-gradient(90deg,var(--accent-color),var(--accent-2))';
       btn.style.color = '#002b30';
       btn.style.boxShadow = '0 8px 24px rgba(0,195,255,0.08)';
-    }
-    [loadBtn, connectBtn, connectArduinoBtn].forEach(el => applyButtonGradient(el));
+    });
 
-    /* update slider UI position (bubble) */
     function updateSliderUI(){
       const val = parseInt(threshRange.value);
       const min = parseInt(threshRange.min || 0);
@@ -332,17 +253,11 @@
 
     async function connectMicrobit(){
       if (bleConnected) { await disconnectMicrobit(); return; }
-      if (!('bluetooth' in navigator)) {
-        alert('Web Bluetooth not supported. Use Chrome/Edge.');
-        return;
-      }
+      if (!('bluetooth' in navigator)) { alert('Web Bluetooth not supported. Use Chrome/Edge.'); return; }
       try {
         setStatus('Requesting micro:bit...', '#00c3ff');
         connectBtn.textContent = 'Requesting...';
-        bleDevice = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'BBC micro:bit' }],
-          optionalServices: [UART_SERVICE_UUID]
-        });
+        bleDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] });
         if(!bleDevice) throw new Error('No device selected');
         bleDevice.addEventListener('gattserverdisconnected', handleDisconnected);
         setStatus('Connecting...', '#00c3ff');
@@ -388,20 +303,9 @@
     }
 
     function attemptReconnect(){
-      if(!bleDevice){
-        setStatus('Not connected');
-        connectBtn.textContent = 'Connect micro:bit';
-        updateButtonsVisibility();
-        return;
-      }
+      if(!bleDevice){ setStatus('Not connected'); connectBtn.textContent = 'Connect micro:bit'; updateButtonsVisibility(); return; }
       reconnectAttempts++;
-      if(reconnectAttempts > MAX_RECONNECT_ATTEMPTS){
-        setStatus('Reconnect failed — click Connect', '#ff6b6b');
-        connectBtn.textContent = 'Connect micro:bit';
-        bleDevice = null; bleConnected = false;
-        updateButtonsVisibility();
-        return;
-      }
+      if(reconnectAttempts > MAX_RECONNECT_ATTEMPTS){ setStatus('Reconnect failed — click Connect', '#ff6b6b'); connectBtn.textContent = 'Connect micro:bit'; bleDevice = null; bleConnected = false; updateButtonsVisibility(); return; }
       const backoffMs = Math.min(1000 * Math.pow(2, reconnectAttempts-1), 20000);
       setTimeout(async () => {
         try {
@@ -418,53 +322,26 @@
           setStatus(`Reconnected: ${bleDevice.name || 'micro:bit'}`, '#00ff99');
           connectBtn.textContent = 'Disconnect';
           updateButtonsVisibility();
-        } catch(e){
-          console.warn('Reconnect attempt failed', e);
-          attemptReconnect();
-        }
+        } catch(e){ console.warn('Reconnect attempt failed', e); attemptReconnect(); }
       }, backoffMs);
     }
 
-    function onNotify(ev){
-      const value = ev.target.value;
-      const text = new TextDecoder().decode(value);
-      safeLog('Notified:', text);
-    }
+    function onNotify(ev){ const value = ev.target.value; const text = new TextDecoder().decode(value); safeLog('Notified:', text); }
 
     function sendUARTRaw(bytes){
-      if(!writeChar){
-        safeLog('No write characteristic - cannot send');
-        setStatus('Not writable - reconnect or check micro:bit firmware', '#ff6b6b');
-        return Promise.reject(new Error('No write characteristic'));
-      }
+      if(!writeChar){ safeLog('No write characteristic - cannot send'); setStatus('Not writable - reconnect or check micro:bit firmware', '#ff6b6b'); return Promise.reject(new Error('No write characteristic')); }
       return queueGattOperation(async () => {
         try {
-          if(typeof writeChar.writeValue === 'function'){
-            await writeChar.writeValue(bytes);
-          } else if(typeof writeChar.writeValueWithoutResponse === 'function'){
-            await writeChar.writeValueWithoutResponse(bytes);
-          } else {
-            if(writeChar.properties && writeChar.properties.writeWithoutResponse && typeof writeChar.writeValue === 'function'){
-              await writeChar.writeValue(bytes);
-            } else {
-              throw new Error('No writable method on characteristic');
-            }
-          }
-        } catch (err){
-          console.error('Write failed', err);
-          throw err;
-        }
+          if(typeof writeChar.writeValue === 'function'){ await writeChar.writeValue(bytes); }
+          else if(typeof writeChar.writeValueWithoutResponse === 'function'){ await writeChar.writeValueWithoutResponse(bytes); }
+          else { if(writeChar.properties && writeChar.properties.writeWithoutResponse && typeof writeChar.writeValue === 'function'){ await writeChar.writeValue(bytes); } else { throw new Error('No writable method on characteristic'); } }
+        } catch (err){ console.error('Write failed', err); throw err; }
       });
     }
 
     async function sendToMicrobit(text){
       if(!bleConnected || !writeChar) return;
-      try {
-        const payload = textEncoder.encode(String(text) + '\n');
-        await sendUARTRaw(payload);
-      } catch(e){
-        console.error('sendToMicrobit error', e);
-      }
+      try { const payload = textEncoder.encode(String(text) + '\n'); await sendUARTRaw(payload); } catch(e){ console.error('sendToMicrobit error', e); }
     }
 
     function updateButtonsVisibility(){
@@ -486,11 +363,15 @@
     /* ---------- Teachable Machine integration (tmImage) ---------- */
     const tm = window.tmImage;
     let tmModel = null, webcam = null, labels = [], running = false;
-    let smoothingBuffer = [], smoothingFrames = 2;
-    const STABLE_FRAMES_REQUIRED = 2;
-    const COOLDOWN_MS = 700;
+
+    // Optimized defaults for snappy, accurate predictions
+    const INPUT_SIZE = 400;                // larger input for more detail
+    let smoothingFrames = 1;               // 1 = effectively no smoothing (snappy)
+    const STABLE_FRAMES_REQUIRED = 1;      // accept after 1 stable frame
+    const COOLDOWN_MS = 300;               // short cooldown to avoid repeats
     const BLE_SEND_COOLDOWN_MS = 300;
-    let candidateIdx = null, stableCount = 0, lastAcceptedIdx = null, lastAcceptedAt = 0;
+
+    let smoothingBuffer = [], candidateIdx = null, stableCount = 0, lastAcceptedIdx = null, lastAcceptedAt = 0;
     let lastSentLabel = null, lastSentAt = 0;
 
     function renderClassesPlaceholder(){
@@ -503,30 +384,9 @@
       });
       classCountEl.textContent = labels.length ? labels.length + ' total' : '—';
     }
-    function renderProbabilities(arr){
-      arr.forEach((p,i)=>{
-        const el = document.getElementById('p-'+i);
-        if(el) el.textContent = (p*100).toFixed(0) + '%';
-      });
-    }
+    function renderProbabilities(arr){ arr.forEach((p,i)=>{ const el = document.getElementById('p-'+i); if(el) el.textContent = (p*100).toFixed(0) + '%'; }); }
 
-    function normalizeBase(urlOrId){
-      if(!urlOrId) return null;
-      const s = urlOrId.trim();
-      if(!s) return null;
-      if(s.startsWith('http')){
-        try{
-          const u = new URL(s);
-          const parts = u.pathname.split('/').filter(Boolean);
-          const idx = parts.indexOf('models');
-          if(idx>=0 && parts.length>idx+1) return `https://teachablemachine.withgoogle.com/models/${parts[idx+1]}/`;
-        }catch(e){}
-        if(s.endsWith('model.json')) return s.replace(/model\.json$/,'');
-        return s.endsWith('/') ? s : s + '/';
-      } else {
-        return `https://teachablemachine.withgoogle.com/models/${s}/`;
-      }
-    }
+    function normalizeBase(urlOrId){ if(!urlOrId) return null; const s = urlOrId.trim(); if(!s) return null; if(s.startsWith('http')){ try{ const u = new URL(s); const parts = u.pathname.split('/').filter(Boolean); const idx = parts.indexOf('models'); if(idx>=0 && parts.length>idx+1) return `https://teachablemachine.withgoogle.com/models/${parts[idx+1]}/`; }catch(e){} if(s.endsWith('model.json')) return s.replace(/model\.json$/,''); return s.endsWith('/') ? s : s + '/'; } else { return `https://teachablemachine.withgoogle.com/models/${s}/`; } }
 
     async function loadModel(){
       const base = normalizeBase(modelUrlInput.value);
@@ -539,73 +399,54 @@
         const maxPredictions = tmModel.getTotalClasses();
 
         try {
-          if(typeof tmModel.getClassLabels === 'function'){
-            labels = tmModel.getClassLabels();
-          } else if(Array.isArray(tmModel.labels)){
-            labels = tmModel.labels;
-          } else if(tmModel?.metadata?.labels){
-            labels = tmModel.metadata.labels;
-          } else if(Array.isArray(tmModel?.model?.labels)){
-            labels = tmModel.model.labels;
-          }
+          if(typeof tmModel.getClassLabels === 'function'){ labels = tmModel.getClassLabels(); }
+          else if(Array.isArray(tmModel.labels)){ labels = tmModel.labels; }
+          else if(tmModel?.metadata?.labels){ labels = tmModel.metadata.labels; }
+          else if(Array.isArray(tmModel?.model?.labels)){ labels = tmModel.model.labels; }
         } catch(e){ console.warn('label read error', e); }
 
-        if(!labels || labels.length===0){
-          labels = new Array(maxPredictions).fill(0).map((_,i)=>`Class ${i}`);
-        }
+        if(!labels || labels.length===0){ labels = new Array(maxPredictions).fill(0).map((_,i)=>`Class ${i}`); }
 
         setStatus('Model loaded — ' + labels.length + ' classes', '#00ff99');
         renderClassesPlaceholder();
 
-        // warm up
+        // warm up using model input shape or INPUT_SIZE fallback
         try {
           const inShape = tmModel?.model?.inputs?.[0]?.shape;
-          const h = (inShape && inShape.length>=4) ? inShape[1] : 224;
-          const w = (inShape && inShape.length>=4) ? inShape[2] : 224;
+          const h = (inShape && inShape.length>=4) ? inShape[1] : INPUT_SIZE;
+          const w = (inShape && inShape.length>=4) ? inShape[2] : INPUT_SIZE;
           const warm = tf.zeros([1,h,w,3]);
           const warmOut = tmModel.model.predict(warm);
-          if(Array.isArray(warmOut)){
-            warmOut.forEach(t=>t.dispose && t.dispose());
-          } else {
-            warmOut.dispose && warmOut.dispose();
-          }
+          if(Array.isArray(warmOut)){ warmOut.forEach(t=>t.dispose && t.dispose()); } else { warmOut.dispose && warmOut.dispose(); }
           warm.dispose();
         } catch(e){ console.warn('Warmup failed', e); }
 
-        if(!webcam){
-          try { await initWebcam(); } catch(e){}
-        }
+        if(!webcam){ try { await initWebcam(); } catch(e){} }
         if(webcam && tmModel && !running) predictLoop();
-      } catch(err){
-        console.error(err);
-        setStatus('Model load failed — check URL/CORS', '#ff6b6b');
-        tmModel = null;
-      }
+      } catch(err){ console.error(err); setStatus('Model load failed — check URL/CORS', '#ff6b6b'); tmModel = null; }
     }
+
+    let useFrontCamera = false;
+    let flipPreview = false; // pass to tm.Webcam constructor for consistent mirroring
 
     async function initWebcam(){
       try {
         if(webcam && typeof webcam.stop === 'function'){ webcam.stop(); webcam = null; }
-        const INPUT_SIZE = 224;
-        // default: real (non-mirrored) feed for correct left/right mapping
-        webcam = new tm.Webcam(INPUT_SIZE, INPUT_SIZE, false);
-        await webcam.setup();
+        // create webcam with explicit flip flag
+        webcam = new tm.Webcam(INPUT_SIZE, INPUT_SIZE, flipPreview);
+        // setup with facingMode for best device selection
+        await webcam.setup({ facingMode: useFrontCamera ? 'user' : 'environment' });
         await webcam.play();
         webcamContainer.innerHTML = "";
         webcamContainer.appendChild(webcam.canvas);
         webcam.canvas.className = 'webcam-canvas smaller';
-        // default: not mirrored (user requested real-world mapping). preview remains unflipped
-        webcam.canvas.style.transform = 'scaleX(-1)';
+        // ensure consistent canvas sizing
         webcam.canvas.style.maxHeight = '400px';
         webcam.canvas.style.height = '400px';
         webcam.canvas.style.width = 'auto';
         setStatus('Camera started', '#9fdfff');
         return;
-      } catch(e){
-        console.error('Webcam init error', e);
-        setStatus(e.name === 'NotAllowedError' ? 'Camera permission denied' : 'Camera error: ' + (e.message || e.name), '#ff6b6b');
-        throw e;
-      }
+      } catch(e){ console.error('Webcam init error', e); setStatus(e.name === 'NotAllowedError' ? 'Camera permission denied' : 'Camera error: ' + (e.message || e.name), '#ff6b6b'); throw e; }
     }
 
     async function predictLoop(){
@@ -614,61 +455,68 @@
       running = true;
       setStatus('Predicting...', '#9fdfff');
       smoothingBuffer = [];
+
       async function step(){
         if(!running) return;
         try {
           webcam.update();
           const predictions = await tmModel.predict(webcam.canvas);
+
+          // probabilities array
           const probs = predictions.map(p=>p.probability);
+
+          // smoothing buffer
           smoothingBuffer.push(probs);
           if(smoothingBuffer.length > smoothingFrames) smoothingBuffer.shift();
+
+          // compute average (if smoothingFrames==1 this is just the latest frame)
           const avg = new Array(probs.length).fill(0);
-          smoothingBuffer.forEach(arr=>{
-            for(let i=0;i<arr.length;i++) avg[i]+=arr[i];
-          });
+          smoothingBuffer.forEach(arr=>{ for(let i=0;i<arr.length;i++) avg[i]+=arr[i]; });
           for(let i=0;i<avg.length;i++) avg[i] = avg[i] / smoothingBuffer.length;
+
           renderProbabilities(avg);
-          const confThreshold = Math.max(0, Math.min(1, (parseInt(threshRange.value)||85)/100));
+
+          // threshold from UI (slider) with fallback to 0.8
+          const confThreshold = Math.max(0, Math.min(1, (parseInt(threshRange.value)||80)/100));
+
+          // pick best
           let bestIdx = 0; let bestProb = avg[0]||0;
           for(let i=1;i<avg.length;i++){ if(avg[i]>bestProb){ bestProb=avg[i]; bestIdx=i; } }
-          const now = Date.now();
-          if(lastAcceptedAt && (now - lastAcceptedAt) < COOLDOWN_MS){
-            if(lastAcceptedIdx !== null){
-              mainLabelEl.textContent = `${labels[lastAcceptedIdx] || ('Class '+lastAcceptedIdx)}`;
-            }
-          } else {
-            if(bestProb >= confThreshold){
-              if(candidateIdx === bestIdx) stableCount++;
-              else { candidateIdx = bestIdx; stableCount = 1; }
-              if(stableCount >= STABLE_FRAMES_REQUIRED){
-                if(lastAcceptedIdx !== candidateIdx){
-                  lastAcceptedIdx = candidateIdx;
-                  lastAcceptedAt = Date.now();
-                  mainLabelEl.textContent = `${labels[lastAcceptedIdx] || ('Class '+lastAcceptedIdx)}`;
 
-                  const labelToSend = labels[lastAcceptedIdx];
-                  const nowSend = Date.now();
-                  if(labelToSend && (labelToSend !== lastSentLabel || (nowSend - lastSentAt) > BLE_SEND_COOLDOWN_MS)){
-                    lastSentLabel = labelToSend; lastSentAt = nowSend;
-                    if (serialConnected) { sendSerialLine(labelToSend); }
-                    else if (bleConnected) { sendToMicrobit(labelToSend).catch(e=>console.warn('BLE send failed', e)); }
-                  }
+          const now = Date.now();
+
+          // simple acceptance logic (snappy): accept when bestProb >= threshold
+          if(bestProb >= confThreshold){
+            if(candidateIdx === bestIdx) stableCount++; else { candidateIdx = bestIdx; stableCount = 1; }
+            if(stableCount >= STABLE_FRAMES_REQUIRED){
+              if(lastAcceptedIdx !== candidateIdx){
+                lastAcceptedIdx = candidateIdx;
+                lastAcceptedAt = Date.now();
+                mainLabelEl.textContent = `${labels[lastAcceptedIdx] || ('Class '+lastAcceptedIdx)}`;
+
+                const labelToSend = labels[lastAcceptedIdx];
+                const nowSend = Date.now();
+                if(labelToSend && (labelToSend !== lastSentLabel || (nowSend - lastSentAt) > BLE_SEND_COOLDOWN_MS)){
+                  lastSentLabel = labelToSend; lastSentAt = nowSend;
+                  if (serialConnected) { sendSerialLine(labelToSend); }
+                  else if (bleConnected) { sendToMicrobit(labelToSend).catch(e=>console.warn('BLE send failed', e)); }
                 }
               }
-            } else {
-              candidateIdx = null; stableCount = 0;
             }
+          } else {
+            candidateIdx = null; stableCount = 0;
+            // Optionally clear label when below threshold (comment out if prefer sticky last label)
+            // mainLabelEl.textContent = '—';
           }
-        } catch(err){
-          console.error('Prediction loop error', err);
-          setStatus('Prediction error — see console', '#ff6b6b');
-          running = false;
-          return;
-        }
+
+        } catch(err){ console.error('Prediction loop error', err); setStatus('Prediction error — see console', '#ff6b6b'); running = false; return; }
         requestAnimationFrame(step);
       }
       step();
     }
+
+    /* UI helpers */
+    function toggleCameraFacing(){ useFrontCamera = !useFrontCamera; flipPreview = useFrontCamera; initWebcam().catch(()=>{}); }
 
     /* cleanup on unload */
     window.addEventListener('beforeunload', async ()=>{
@@ -695,21 +543,16 @@
         const writable = !!port.writable;
         const readable = !!port.readable;
         const nowSerial = writable || readable || serialConnected;
-        if (!nowSerial && serialConnected) {
-          serialConnected = false;
-        }
+        if (!nowSerial && serialConnected) { serialConnected = false; }
       }
-      if (serialConnected) {
-        setStatus('Connected to Arduino', '#00ff99');
-        connectArduinoBtn.textContent = 'Disconnect';
-      } else {
-        if (!bleConnected) {
-          setStatus('Not connected');
-        }
-        connectArduinoBtn.textContent = 'Connect Arduino';
-      }
+      if (serialConnected) { setStatus('Connected to Arduino', '#00ff99'); connectArduinoBtn.textContent = 'Disconnect'; }
+      else { if (!bleConnected) { setStatus('Not connected'); } connectArduinoBtn.textContent = 'Connect Arduino'; }
       updateButtonsVisibility();
     }, 1200);
+
+    // allow quick keyboard start: Enter on model input
+    modelUrlInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') loadModel(); });
+
   </script>
 </body>
 </html>
