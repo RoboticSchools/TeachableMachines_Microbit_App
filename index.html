@@ -104,10 +104,6 @@
     .slider-meta{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--muted);font-size:13px}
     #mainLabel{font-size:18px;font-weight:800;text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);color:#fff;min-height:52px;display:flex;align-items:center;justify-content:center}
 
-    /* flip toggle styling under preview */
-    .flip-row{margin-top:12px;display:flex;gap:10px;align-items:center;justify-content:center;width:100%}
-    .toggle{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.02);padding:8px 12px;border-radius:999px;cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
-    .toggle.active{background:linear-gradient(90deg,var(--accent-color),var(--accent-2));color:#002b30;border:0;box-shadow:0 8px 20px rgba(0,195,255,0.08)}
     @media(max-width:1100px){
       .container{grid-template-columns:220px 1fr 320px;padding:14px}
       .webcam-canvas.smaller{height:280px;max-height:280px}
@@ -155,10 +151,7 @@
         <video id="video" autoplay playsinline muted style="display:none"></video>
       </div>
 
-      <!-- flip toggle under preview -->
-      <div class="flip-row">
-        <div id="flipToggle" class="toggle" role="button" aria-pressed="false">Flip preview</div>
-      </div>
+      <!-- flip preview toggle removed -->
     </main>
 
     <section class="right-col" aria-label="Controls & info">
@@ -195,7 +188,6 @@
     const classesEl = document.getElementById('classes');
     const classCountEl = document.getElementById('classCount');
     const webcamContainer = document.getElementById('webcam-container');
-    const flipToggle = document.getElementById('flipToggle');
 
     /* apply gradient to primary buttons */
     function applyButtonGradient(btn){
@@ -222,19 +214,6 @@
     connectArduinoBtn.addEventListener('click', connectArduino);
 
     function setStatus(txt, color = ''){ statusEl.textContent = txt; statusEl.style.color = color || ''; }
-
-    /* Flip toggle: toggles CSS mirror on the webcam canvas (preview only) */
-    let previewFlipped = false;
-    function setPreviewFlip(flip){
-      previewFlipped = !!flip;
-      const c = webcam && webcam.canvas ? webcam.canvas : document.querySelector('.webcam-canvas');
-      if(c){
-        c.style.transform = flip ? 'scaleX(-1)' : 'scaleX(1)';
-      }
-      flipToggle.classList.toggle('active', previewFlipped);
-      flipToggle.setAttribute('aria-pressed', previewFlipped ? 'true' : 'false');
-    }
-    flipToggle.addEventListener('click', ()=> setPreviewFlip(!previewFlipped));
 
     /* ---------------- Web Serial (Arduino) ---------------- */
     let port = null, writer = null, reader = null, serialConnected = false;
@@ -614,8 +593,8 @@
         webcamContainer.innerHTML = "";
         webcamContainer.appendChild(webcam.canvas);
         webcam.canvas.className = 'webcam-canvas smaller';
-        // default: not mirrored (user requested real-world mapping). flipToggle controls CSS transform
-        webcam.canvas.style.transform = 'scaleX(1)';
+        // default: not mirrored (user requested real-world mapping). preview remains unflipped
+        webcam.canvas.style.transform = 'scaleX(-1)';
         webcam.canvas.style.maxHeight = '320px';
         webcam.canvas.style.height = '320px';
         webcam.canvas.style.width = 'auto';
