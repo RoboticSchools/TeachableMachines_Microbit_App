@@ -15,44 +15,91 @@
       --card:rgba(255,255,255,0.03);
       --muted:#9fdfff;
       --accent-color:#00c3ff;
+      --accent-2:#00ffa3;
       --radius:14px;
       --gap:16px;
       --max-width:1180px;
+      --slider-height:10px;
+      --thumb-size:22px;
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:#eafcff;font-family:Inter,Segoe UI,Arial,sans-serif}
     .top-header{position:fixed;top:18px;left:18px;z-index:200;display:flex;align-items:center;gap:12px}
     .logo{height:52px;width:auto;cursor:pointer}
-    /* container layout */
     .container{max-width:var(--max-width);margin:84px auto;padding:18px;display:grid;grid-template-columns:260px 1fr 360px;gap:var(--gap);align-items:start}
-    /* header spacing increased */
     header.page-header{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:20px;margin-bottom:0;padding-top:6px}
     h1{margin:0;font-size:20px;font-weight:800;text-align:center}
-    /* controls - put model input on first row, connection trio on second row (with space) */
     .controls{width:100%;display:flex;flex-direction:column;gap:14px;align-items:center}
     .model-row{display:flex;gap:12px;align-items:center}
     input[type="text"]{width:520px;max-width:100%;padding:12px 14px;border-radius:12px;border:0;background:#0b0c0e;color:#fff;font-size:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02)}
-    .btn{padding:10px 14px;border-radius:12px;border:0;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.03);color:#eaffff}
-    .btn.primary{background:var(--accent-color);color:#002b30;box-shadow:0 6px 18px rgba(0,195,255,0.06)}
-    .controls-row-second{display:flex;gap:18px;align-items:center;justify-content:center;width:100%;margin-top:6px}
+    .btn{padding:10px 14px;border-radius:12px;border:0;font-weight:700;cursor:pointer;color:#002b30; background:linear-gradient(90deg,var(--accent-color),var(--accent-2)); box-shadow:0 8px 24px rgba(0,195,255,0.08); display:inline-flex;align-items:center;justify-content:center}
+    .controls-row-second{display:flex;gap:18px;align-items:center;justify-content:center;width:100%;margin-top:6px;flex-wrap:wrap}
     .status{background:var(--card);padding:8px 12px;border-radius:12px;color:var(--muted);font-weight:700;min-width:240px;text-align:center}
-    /* left column (classes) */
     .classes-panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.015));border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6);max-height:640px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
     .classes-list{display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:6px;margin-top:6px}
     .class-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.012);font-weight:600}
-    /* center video (reduced height, mirrored) */
-    .video-card{background:#000;border-radius:var(--radius);overflow:hidden;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
-    .webcam-canvas{border-radius:12px;max-width:720px;width:100%;height:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.6);background:#000;object-fit:cover}
-    /* restrict preview height to 320px (reduced) */
+    .video-card{background:#000;border-radius:var(--radius);overflow:hidden;min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+    .webcam-canvas{border-radius:12px;max-width:720px;width:100%;height:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.6);background:#000;object-fit:cover;transform:scaleX(-1);}
     .webcam-canvas.smaller { max-height:320px; height:320px; width:auto; }
-    /* right column */
     .right-col{display:flex;flex-direction:column;gap:12px;align-items:stretch}
     .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.015));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);box-shadow:0 8px 30px rgba(0,0,0,0.45)}
-    .slider-row{display:flex;align-items:center;gap:10px}
-    input[type="range"]{width:100%;accent-color:var(--accent-color)}
-    .percent{min-width:46px;text-align:right;font-weight:700;color:var(--muted)}
+    /* slider */
+    .slider-card{padding:18px;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+    .slider-wrap{position:relative;width:100%;padding-top:18px}
+    input[type="range"]{
+      -webkit-appearance:none;
+      appearance:none;
+      width:100%;
+      height:var(--slider-height);
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--accent-color),var(--accent-2));
+      outline:none;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    input[type="range"]::-webkit-slider-runnable-track{height:var(--slider-height);border-radius:999px}
+    input[type="range"]::-moz-range-track{height:var(--slider-height);border-radius:999px}
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      appearance:none;
+      width:var(--thumb-size);
+      height:var(--thumb-size);
+      border-radius:50%;
+      background:linear-gradient(180deg,#fff,#dffaff);
+      border:3px solid rgba(0,195,255,0.18);
+      box-shadow:0 6px 18px rgba(0,0,0,0.5);
+      margin-top: calc((var(--thumb-size) / -2) + (var(--slider-height)/2));
+    }
+    input[type="range"]::-moz-range-thumb{
+      width:var(--thumb-size);
+      height:var(--thumb-size);
+      border-radius:50%;
+      background:linear-gradient(180deg,#fff,#dffaff);
+      border:3px solid rgba(0,195,255,0.18);
+      box-shadow:0 6px 18px rgba(0,0,0,0.5);
+    }
+    .bubble{
+      position:absolute;
+      top:0;
+      transform:translateX(-50%);
+      background:linear-gradient(180deg,#002b30,#00404a);
+      color:#bff9ff;
+      padding:6px 8px;border-radius:8px;font-weight:800;font-size:12px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.5);
+      pointer-events:none;
+      white-space:nowrap;
+    }
+    .bubble::after{
+      content:'';
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:-6px;
+      width:10px;height:10px;background:linear-gradient(180deg,#002b30,#00404a);
+      transform:translateX(-50%) rotate(45deg);
+      border-radius:2px;
+    }
+    .slider-meta{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--muted);font-size:13px}
     #mainLabel{font-size:18px;font-weight:800;text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);color:#fff;min-height:52px;display:flex;align-items:center;justify-content:center}
-    .deviceName{font-size:13px;color:#bfefff;margin-top:6px;text-align:center}
     @media(max-width:1100px){
       .container{grid-template-columns:220px 1fr 320px;padding:14px}
       .webcam-canvas.smaller{height:280px;max-height:280px}
@@ -77,55 +124,49 @@
       <h1>Teachable Machines + AI Vision — Micro:bit + Arduino</h1>
 
       <div class="controls">
-        <!-- first row: model input + load -->
         <div class="model-row">
           <input id="modelUrl" type="text" placeholder="Paste the Model URL or ID ..." />
-          <button id="loadBtn" class="btn primary">Load Model</button>
+          <button id="loadBtn" class="btn">Load Model</button>
         </div>
 
-        <!-- second row: connections (moved to next line) -->
         <div class="controls-row-second" aria-live="polite">
-          <button id="connectMicrobitBtn" class="btn primary">Connect micro:bit</button>
+          <button id="connectMicrobitBtn" class="btn">Connect micro:bit</button>
           <div id="connStatus" class="status">Not connected</div>
-          <button id="connectArduinoBtn" class="btn primary">Connect Arduino</button>
+          <button id="connectArduinoBtn" class="btn">Connect Arduino</button>
         </div>
       </div>
     </header>
 
-    <!-- left: classes -->
     <aside class="classes-panel" aria-label="Classes panel">
       <h3>Classes <span id="classCount" style="font-weight:700;color:#9fdfff">—</span></h3>
       <div class="classes-list" id="classes"></div>
     </aside>
 
-    <!-- center: video -->
     <main class="video-card" aria-label="Camera preview">
       <div id="webcam-container" style="width:100%;display:flex;align-items:center;justify-content:center;">
         <video id="video" autoplay playsinline muted style="display:none"></video>
       </div>
     </main>
 
-    <!-- right: controls & labels -->
-    <section class="right-col" aria-label="Controls & device info">
-      <div class="card">
+    <section class="right-col" aria-label="Controls & info">
+      <div class="card slider-card">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div style="font-weight:800">Threshold</div>
-          <div style="font-size:12px;color:#9fdfff">Confidence filter</div>
         </div>
-        <div style="height:10px"></div>
-        <div class="slider-row">
+
+        <div class="slider-wrap">
           <input id="thresh" type="range" min="30" max="95" value="65" />
-          <div class="percent" id="threshPct">65%</div>
+          <div class="bubble" id="threshBubble">65%</div>
+        </div>
+
+        <div class="slider-meta">
+          <div style="opacity:0.9"></div>
+          <div id="threshPct" style="font-weight:900;color:var(--muted)">65%</div>
         </div>
       </div>
 
       <div class="card" id="mainCard">
         <div id="mainLabel">—</div>
-      </div>
-
-      <div class="card" style="padding:12px;text-align:center">
-        <div style="font-weight:800;margin-bottom:6px">Device</div>
-        <div class="deviceName" id="deviceName">—</div>
       </div>
     </section>
   </div>
@@ -140,12 +181,32 @@
     const mainLabelEl = document.getElementById('mainLabel');
     const threshRange = document.getElementById('thresh');
     const threshPct = document.getElementById('threshPct');
+    const threshBubble = document.getElementById('threshBubble');
     const classesEl = document.getElementById('classes');
     const classCountEl = document.getElementById('classCount');
-    const deviceNameEl = document.getElementById('deviceName');
     const webcamContainer = document.getElementById('webcam-container');
 
-    threshRange.addEventListener('input', ()=>{ threshPct.textContent = threshRange.value + '%'; });
+    /* style buttons gradient (keeps gradient even if classes differ) */
+    function applyButtonGradient(btn){
+      btn.style.background = 'linear-gradient(90deg,var(--accent-color),var(--accent-2))';
+      btn.style.color = '#002b30';
+      btn.style.boxShadow = '0 8px 24px rgba(0,195,255,0.08)';
+    }
+    [loadBtn, connectBtn, connectArduinoBtn].forEach(el => applyButtonGradient(el));
+
+    /* update slider UI position (bubble) */
+    function updateSliderUI(){
+      const val = parseInt(threshRange.value);
+      const min = parseInt(threshRange.min || 0);
+      const max = parseInt(threshRange.max || 100);
+      const pct = (val - min) / (max - min) * 100;
+      threshBubble.style.left = pct + '%';
+      threshBubble.textContent = val + '%';
+      threshPct.textContent = val + '%';
+    }
+    threshRange.addEventListener('input', updateSliderUI);
+    updateSliderUI();
+
     loadBtn.addEventListener('click', loadModel);
     connectBtn.addEventListener('click', connectMicrobit);
     connectArduinoBtn.addEventListener('click', connectArduino);
@@ -285,7 +346,6 @@
         });
         if(!bleDevice) throw new Error('No device selected');
         bleDevice.addEventListener('gattserverdisconnected', handleDisconnected);
-        deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
         setStatus('Connecting...', '#00c3ff');
         bleServer = await bleDevice.gatt.connect();
         setStatus('Getting UART service...', '#00c3ff');
@@ -300,7 +360,6 @@
         bleConnected = true; reconnectAttempts = 0;
         setStatus(`Connected: ${bleDevice.name || 'micro:bit'}`, '#00ff99');
         connectBtn.textContent = 'Disconnect';
-        deviceNameEl.textContent = `Device: ${bleDevice.name || 'micro:bit'}`;
         updateButtonsVisibility();
       } catch (err) {
         console.error('BLE connect failed', err);
@@ -318,7 +377,6 @@
       bleDevice = null; bleServer = null; writeChar = null; notifyChar = null; bleConnected = false;
       connectBtn.textContent = 'Connect micro:bit';
       setStatus(serialConnected ? 'Connected to Arduino' : 'Not connected');
-      deviceNameEl.textContent = serialConnected ? 'Connected to Arduino' : '—';
       updateButtonsVisibility();
     }
 
@@ -530,16 +588,14 @@
       try {
         if(webcam && typeof webcam.stop === 'function'){ webcam.stop(); webcam = null; }
         const INPUT_SIZE = 224;
-        // flip=true for mirrored internal feed; additionally apply CSS mirror just in case
+        // mirror preview: tm.Webcam flip + CSS transform
         webcam = new tm.Webcam(INPUT_SIZE, INPUT_SIZE, true);
         await webcam.setup();
         await webcam.play();
         webcamContainer.innerHTML = "";
         webcamContainer.appendChild(webcam.canvas);
         webcam.canvas.className = 'webcam-canvas smaller';
-        // enforce mirror (CSS) so preview is mirrored
-        webcam.canvas.style.transform = 'scaleX(-1)';
-        // ensure height reduction
+        webcam.canvas.style.transform = 'scaleX(-1)'; // ensure mirror
         webcam.canvas.style.maxHeight = '320px';
         webcam.canvas.style.height = '320px';
         webcam.canvas.style.width = 'auto';
