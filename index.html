@@ -168,8 +168,8 @@
         </div>
 
         <div class="slider-wrap">
-          <input id="thresh" type="range" min="30" max="95" value="65" />
-          <div class="bubble" id="threshBubble">65%</div>
+          <input id="thresh" type="range" min="30" max="95" value="85" />
+          <div class="bubble" id="threshBubble">85%</div>
         </div>
 
         <!-- removed percent under slider as requested; keep small spacer -->
@@ -648,7 +648,7 @@
           });
           for(let i=0;i<avg.length;i++) avg[i] = avg[i] / smoothingBuffer.length;
           renderProbabilities(avg);
-          const confThreshold = Math.max(0, Math.min(1, (parseInt(threshRange.value)||65)/100));
+          const confThreshold = Math.max(0, Math.min(1, (parseInt(threshRange.value)||85)/100));
           let bestIdx = 0; let bestProb = avg[0]||0;
           for(let i=1;i<avg.length;i++){ if(avg[i]>bestProb){ bestProb=avg[i]; bestIdx=i; } }
           const now = Date.now();
