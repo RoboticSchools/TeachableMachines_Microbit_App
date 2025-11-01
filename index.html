@@ -33,13 +33,15 @@
     .model-row{display:flex;gap:12px;align-items:center}
     input[type="text"]{width:520px;max-width:100%;padding:12px 14px;border-radius:12px;border:0;background:#0b0c0e;color:#fff;font-size:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02)}
     .btn{padding:10px 14px;border-radius:12px;border:0;font-weight:700;cursor:pointer;color:#002b30; background:linear-gradient(90deg,var(--accent-color),var(--accent-2)); box-shadow:0 8px 24px rgba(0,195,255,0.08); display:inline-flex;align-items:center;justify-content:center}
+    .btn.ghost{background:rgba(255,255,255,0.02); color:#bff6ff; box-shadow:none}
     .controls-row-second{display:flex;gap:18px;align-items:center;justify-content:center;width:100%;margin-top:6px;flex-wrap:wrap}
     .status{background:var(--card);padding:8px 12px;border-radius:12px;color:var(--muted);font-weight:700;min-width:240px;text-align:center}
     .classes-panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.015));border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6);max-height:640px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+    .classes-panel h3{margin:0;padding-left:10px} /* <-- added left spacing */
     .classes-list{display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:6px;margin-top:6px}
     .class-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.012);font-weight:600}
     .video-card{background:#000;border-radius:var(--radius);overflow:hidden;min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
-    .webcam-canvas{border-radius:12px;max-width:720px;width:100%;height:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.6);background:#000;object-fit:cover;transform:scaleX(-1);}
+    .webcam-canvas{border-radius:12px;max-width:720px;width:100%;height:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.6);background:#000;object-fit:cover;}
     .webcam-canvas.smaller { max-height:320px; height:320px; width:auto; }
     .right-col{display:flex;flex-direction:column;gap:12px;align-items:stretch}
     .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.015));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);box-shadow:0 8px 30px rgba(0,0,0,0.45)}
@@ -98,8 +100,14 @@
       transform:translateX(-50%) rotate(45deg);
       border-radius:2px;
     }
+    /* removed the small percent under slider, keep only bubble */
     .slider-meta{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--muted);font-size:13px}
     #mainLabel{font-size:18px;font-weight:800;text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);color:#fff;min-height:52px;display:flex;align-items:center;justify-content:center}
+
+    /* flip toggle styling under preview */
+    .flip-row{margin-top:12px;display:flex;gap:10px;align-items:center;justify-content:center;width:100%}
+    .toggle{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.02);padding:8px 12px;border-radius:999px;cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
+    .toggle.active{background:linear-gradient(90deg,var(--accent-color),var(--accent-2));color:#002b30;border:0;box-shadow:0 8px 20px rgba(0,195,255,0.08)}
     @media(max-width:1100px){
       .container{grid-template-columns:220px 1fr 320px;padding:14px}
       .webcam-canvas.smaller{height:280px;max-height:280px}
@@ -146,6 +154,11 @@
       <div id="webcam-container" style="width:100%;display:flex;align-items:center;justify-content:center;">
         <video id="video" autoplay playsinline muted style="display:none"></video>
       </div>
+
+      <!-- flip toggle under preview -->
+      <div class="flip-row">
+        <div id="flipToggle" class="toggle" role="button" aria-pressed="false">Flip preview</div>
+      </div>
     </main>
 
     <section class="right-col" aria-label="Controls & info">
@@ -159,10 +172,8 @@
           <div class="bubble" id="threshBubble">65%</div>
         </div>
 
-        <div class="slider-meta">
-          <div style="opacity:0.9"></div>
-          <div id="threshPct" style="font-weight:900;color:var(--muted)">65%</div>
-        </div>
+        <!-- removed percent under slider as requested; keep small spacer -->
+        <div style="height:6px"></div>
       </div>
 
       <div class="card" id="mainCard">
@@ -180,13 +191,13 @@
     const modelUrlInput = document.getElementById('modelUrl');
     const mainLabelEl = document.getElementById('mainLabel');
     const threshRange = document.getElementById('thresh');
-    const threshPct = document.getElementById('threshPct');
     const threshBubble = document.getElementById('threshBubble');
     const classesEl = document.getElementById('classes');
     const classCountEl = document.getElementById('classCount');
     const webcamContainer = document.getElementById('webcam-container');
+    const flipToggle = document.getElementById('flipToggle');
 
-    /* style buttons gradient (keeps gradient even if classes differ) */
+    /* apply gradient to primary buttons */
     function applyButtonGradient(btn){
       btn.style.background = 'linear-gradient(90deg,var(--accent-color),var(--accent-2))';
       btn.style.color = '#002b30';
@@ -202,7 +213,6 @@
       const pct = (val - min) / (max - min) * 100;
       threshBubble.style.left = pct + '%';
       threshBubble.textContent = val + '%';
-      threshPct.textContent = val + '%';
     }
     threshRange.addEventListener('input', updateSliderUI);
     updateSliderUI();
@@ -212,6 +222,19 @@
     connectArduinoBtn.addEventListener('click', connectArduino);
 
     function setStatus(txt, color = ''){ statusEl.textContent = txt; statusEl.style.color = color || ''; }
+
+    /* Flip toggle: toggles CSS mirror on the webcam canvas (preview only) */
+    let previewFlipped = false;
+    function setPreviewFlip(flip){
+      previewFlipped = !!flip;
+      const c = webcam && webcam.canvas ? webcam.canvas : document.querySelector('.webcam-canvas');
+      if(c){
+        c.style.transform = flip ? 'scaleX(-1)' : 'scaleX(1)';
+      }
+      flipToggle.classList.toggle('active', previewFlipped);
+      flipToggle.setAttribute('aria-pressed', previewFlipped ? 'true' : 'false');
+    }
+    flipToggle.addEventListener('click', ()=> setPreviewFlip(!previewFlipped));
 
     /* ---------------- Web Serial (Arduino) ---------------- */
     let port = null, writer = null, reader = null, serialConnected = false;
@@ -259,12 +282,8 @@
     async function disconnectArduino(){
       connectArduinoBtn.textContent = 'Disconnecting...';
       setStatus('Disconnecting Arduino...');
-      try {
-        if (reader) { await reader.cancel().catch(()=>{}); try { reader.releaseLock(); } catch(e){} reader = null; }
-      } catch(e){}
-      try {
-        if (writer) { try { await writer.close(); } catch(e){} try { writer.releaseLock(); } catch(e){} writer = null; }
-      } catch(e){}
+      try { if (reader) { await reader.cancel().catch(()=>{}); try { reader.releaseLock(); } catch(e){} reader = null; } } catch(e){}
+      try { if (writer) { try { await writer.close(); } catch(e){} try { writer.releaseLock(); } catch(e){} writer = null; } } catch(e){}
       try { if (port) { try { await port.close(); } catch(e){} port = null; } } catch(e){}
       serialConnected = false;
       setStatus(serialConnected ? 'Connected to Arduino' : 'Not connected');
@@ -588,14 +607,15 @@
       try {
         if(webcam && typeof webcam.stop === 'function'){ webcam.stop(); webcam = null; }
         const INPUT_SIZE = 224;
-        // mirror preview: tm.Webcam flip + CSS transform
-        webcam = new tm.Webcam(INPUT_SIZE, INPUT_SIZE, true);
+        // default: real (non-mirrored) feed for correct left/right mapping
+        webcam = new tm.Webcam(INPUT_SIZE, INPUT_SIZE, false);
         await webcam.setup();
         await webcam.play();
         webcamContainer.innerHTML = "";
         webcamContainer.appendChild(webcam.canvas);
         webcam.canvas.className = 'webcam-canvas smaller';
-        webcam.canvas.style.transform = 'scaleX(-1)'; // ensure mirror
+        // default: not mirrored (user requested real-world mapping). flipToggle controls CSS transform
+        webcam.canvas.style.transform = 'scaleX(1)';
         webcam.canvas.style.maxHeight = '320px';
         webcam.canvas.style.height = '320px';
         webcam.canvas.style.width = 'auto';
