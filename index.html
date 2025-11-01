@@ -595,9 +595,9 @@
         webcamContainer.appendChild(webcam.canvas);
         webcam.canvas.className = 'webcam-canvas smaller';
         // default: not mirrored (user requested real-world mapping). preview remains unflipped
-        webcam.canvas.style.transform = 'scaleX(1)';
-        webcam.canvas.style.maxHeight = '320px';
-        webcam.canvas.style.height = '320px';
+        webcam.canvas.style.transform = 'scaleX(-1)';
+        webcam.canvas.style.maxHeight = '400px';
+        webcam.canvas.style.height = '400px';
         webcam.canvas.style.width = 'auto';
         setStatus('Camera started', '#9fdfff');
         return;
