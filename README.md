@@ -1,1 +1,1 @@
-https://roboticschools.github.io/TeachableMachines_Microbit_App/
+https://roboticschools.github.io/AI-Computer-Vision-App/
